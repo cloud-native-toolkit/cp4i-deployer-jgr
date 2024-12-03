@@ -1,0 +1,34 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  generateName: cp4i-demo-run-
+  namespace: default
+spec:
+  # params:
+  # - name: EEM_ADMIN_PWD
+  #   value: passw0rd
+  # - name: EEM_USER_PWD
+  #   value: passw0rd
+  # - name: EP_ADMIN_PWD
+  #   value: passw0rd
+  # - name: MAILTRAP_PWD
+  #   value: mailtrap_pwd
+  # - name: MAILTRAP_USER
+  #   value: mailtrap_user
+  pipelineRef:
+    name: cp4i-demo
+  taskRunTemplate:
+    podTemplate:
+      securityContext:
+        fsGroup: 65532
+  workspaces:
+  - name: cp4i-ws
+    volumeClaimTemplate:
+      metadata:
+        creationTimestamp: null
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
