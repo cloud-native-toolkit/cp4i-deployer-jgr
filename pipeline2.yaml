@@ -248,7 +248,7 @@ spec:
             
             cd workspace/cp4i-ws
             
-            git clone https://github.com/gomezrjo/cp4i-deployer-helper.git
+            git clone --single-branch --branch main https://github.com/gomezrjo/cp4i-deployer-helper.git
 
             echo "Checking helper repo."
 
