@@ -290,7 +290,7 @@ spec:
 
             chmod +x apic
 
-            git clone https://github.com/gomezrjo/cp4i-ace-artifacts.git
+            git clone --single-branch --branch main https://github.com/gomezrjo/cp4i-ace-artifacts.git
 
             echo "Workspace for pipeline is ready"
         - name: VERSION
