@@ -302,6 +302,75 @@ spec:
       timeout: 3h0m0s 
       workspaces:
         - name: cp4i-ws
+    - name: setup-image-registry
+      params:
+        - name: SCRIPT
+          value: >-
+            set -o xtrace
+
+            echo "Setting up Image Registry if needed"
+
+            cd workspace/cp4i-ws
+
+            echo "Preparing pvc.yaml file"
+
+            cat <<EOF >pvc.yaml
+
+            apiVersion: v1
+            
+            kind: PersistentVolumeClaim
+            
+            metadata:
+            
+              name: image-registry-storage
+            
+              namespace: openshift-image-registry
+            
+            spec:
+
+              accessModes:
+
+              - ReadWriteOnce
+
+              resources:
+
+                requests:
+
+                  storage: 100Gi
+
+            EOF
+
+            if [[ -z "$(oc get pod -n openshift-image-registry -l docker-registry=default --ignore-not-found --no-headers)" ]]; then
+                echo "Image Registry instance is NOT available"
+                if [[ "$(oc get clusteroperator image-registry --ignore-not-found --no-headers | awk '{print $3}')" == "True" ]]; then
+                    echo "Image Registry operator is available"
+                    echo "Patching Image Registry configuration"
+                    oc patch configs.imageregistry.operator.openshift.io/cluster --type merge -p '{"spec":{"managementState":"Managed"}}'
+                    oc patch config.imageregistry.operator.openshift.io/cluster --type=merge -p '{"spec":{"rolloutStrategy":"Recreate","replicas":1}}'
+                    echo "Creating PVC for Image Registry"
+                    oc create -f pvc.yaml -n openshift-image-registry
+                    oc patch configs.imageregistry.operator.openshift.io/cluster --type merge -p '{"spec":{"storage":{"pvc":{"claim":"image-registry-storage"}}}}'
+                    while ! oc wait --for=jsonpath='{.status.conditions[1].status}'=True deployment/image-registry -n openshift-image-registry 2>/dev/null; do sleep 30; done
+                    echo "Image Registry instance is deployed"   
+                else
+                    echo "Image Registry operator is NOT available"
+                fi
+            else
+              echo "Image Registry instance is available"
+            fi
+            
+            echo "Image Registry is ready"
+        - name: VERSION
+          value: latest
+      runAfter:
+        - setup-workspace
+      retries: 3
+      taskRef:
+        kind: Task
+        name: jgr-task-0.2
+      timeout: 3h0m0s 
+      workspaces:
+        - name: cp4i-ws
     - name: create-extra-namespaces
       params:
         - name: SCRIPT
@@ -328,7 +397,7 @@ spec:
         - name: VERSION
           value: latest
       runAfter:
-        - setup-workspace
+        - setup-image-registry
       taskRef:
         kind: Task
         name: jgr-task-0.2
