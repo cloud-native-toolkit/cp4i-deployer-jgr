@@ -79,7 +79,7 @@ spec:
 
               if [[ "$(params.DEPLOY_EA_POSTGRESQL)" == "true" ]] &&
                  [[ "$(params.DEPLOY_EA_POSTGRESQL_OPERATOR)" == "true" ]]; then
-                JDBC_URI=$(oc get secret pgsqldemo-pguser-demouser -n $(params.CP4I_NAMESPACE) -o jsonpath='{.data.jdbc\-uri}' | base64 -d)
+                JDBC_URI=$(oc get secret pgsqldemo-pguser-demouser -n pgsql -o jsonpath='{.data.jdbc\-uri}' | base64 -d)
               else
                 JDBC_URI='n/a - PGSQL was not installed per user request.'
               fi
@@ -360,7 +360,7 @@ spec:
       description: Deploy postgresql
       type: string
     - name: REPO_SIGNATURE
-      default: 'JGR-20241201-002'
+      default: 'JGR-20250616-001'
       description: CP4I Deployer Helper Repo Signature
       type: string
     - name: IBM_SECRETS_MANAGER_ENDPOINT
@@ -2567,6 +2567,14 @@ spec:
 
             cd workspace/cp4i-ws/cp4i-deployer-helper
 
+            echo "Creating namespace"
+
+            oc create namespace pgsql
+
+            echo "Enabling Operator Group in namespace"
+
+            oc apply -f resources/12d-pgsql-operatorgroup.yaml
+            
             echo "Installing postgresql operator"
             
             oc apply -f resources/12a-pgsql-subscription.yaml
@@ -2575,7 +2583,7 @@ spec:
             
             SUB_NAME=''
             
-            while [ -z "$SUB_NAME" ]; do sleep 5; SUB_NAME=$(oc get deployment pgo -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}'); done
+            while [ -z "$SUB_NAME" ]; do sleep 5; SUB_NAME=$(oc get deployment pgo -n pgsql --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}'); done
 
             echo "Operator: " $SUB_NAME
 
@@ -2583,7 +2591,7 @@ spec:
             echo "Waiting for postgresql operator to be ready..."
 
             while ! oc wait --for=jsonpath='{.status.phase}'=Succeeded 
-            csv/$SUB_NAME 2>/dev/null; do sleep 30; done
+            csv/$SUB_NAME -n pgsql 2>/dev/null; do sleep 30; done
 
             echo "Postgresql operator is ready"
         - name: VERSION
@@ -2612,20 +2620,19 @@ spec:
 
             echo "Creating config map with postgresql database configuration"
 
-            oc apply -f resources/12b-pgsql-config.yaml -n $(params.CP4I_NAMESPACE)
+            oc apply -f resources/12b-pgsql-config.yaml -n pgsql
 
             echo "Config map is created"
 
             echo "Deploying postgresql database instance"
 
-            oc apply -f resources/12c-pgsql-db.yaml -n
-            $(params.CP4I_NAMESPACE)
+            oc apply -f resources/12c-pgsql-db.yaml -n pgsql
 
             echo "Waiting for postgresql database instance to be ready..."
 
             while ! oc wait --for=jsonpath='{.status.conditions[1].status}'=True
             -l "postgres-operator.crunchydata.com/role=master" pods -n
-            $(params.CP4I_NAMESPACE) 2>/dev/null; do sleep 30; done
+            pgsql 2>/dev/null; do sleep 30; done
 
             echo "Postgresql database instance is ready"
         - name: VERSION
