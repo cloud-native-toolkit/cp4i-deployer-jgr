@@ -219,7 +219,7 @@ spec:
       description: File Storage Class for Cluster
       type: string
     - name: REPO_SIGNATURE
-      default: 'JGR-20241201-002'
+      default: 'JGR-20250616-001'
       description: CP4I Deployer Helper Repo Signature
       type: string
     - name: TRACE
