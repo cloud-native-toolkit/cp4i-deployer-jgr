@@ -11,104 +11,384 @@ spec:
       params:
         - name: SCRIPT
           value: >-
+            cd workspace/cp4i-ws/cp4i-deployer-helper
+
             oc delete configmap/pipeline-cp4i-config-output -n default --ignore-not-found=true 
             
             oc delete configmap/pipeline-extra-api-gtwy-demo-output -n default --ignore-not-found=true 
 
-            oc delete configmap/pipeline-apic-ptl-demo-output -n default --ignore-not-found=true 
+            oc delete configmap/pipeline-apic-demo-output -n default --ignore-not-found=true 
 
-            if [[ "$(tasks.setup-workspace.results.output)" = "true" ]]
+            oc delete configmap/pipeline-dp-gtwy-demo-output -n default --ignore-not-found=true 
 
-            then
+            oc delete configmap/pipeline-qmgr-demo-output -n default --ignore-not-found=true 
 
-              if [[ "$(params.DEPLOY_API_CONNECT_DEMOS)" == "true" ]]; then
+            oc delete configmap/pipeline-qmgr-nha-output -n default --ignore-not-found=true 
 
-                if [[ ! -z $(oc get deployment datapower-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]] &&
-                   [[ ! -z $(oc get deployment ibm-apiconnect -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]]; then
+            oc delete configmap/pipeline-qmgr-crr-output -n default --ignore-not-found=true 
 
-                  if [[ ! -z "$(oc get APIConnectCluster apim-demo -n $(params.CP4I_NAMESPACE) --no-headers --ignore-not-found)" ]]; then 
-                    API_GTWY_MGR=$(oc get route remote-api-gw-gateway-manager -n cp4i-dp -o jsonpath='{.spec.host}')            
-                    API_GTWY_EP=$(oc get route remote-api-gw-gateway -n cp4i-dp -o jsonpath='{.spec.host}')
-                    APIC_PTL_URI=$(oc get portalcluster apim-demo-ptl -n $(params.CP4I_NAMESPACE) -o jsonpath='{.status.endpoints[?(@.name=="portalWeb")].uri}')"cp4i-demo-org/demo"
-                    APIC_CONSUMER_CATALOG_URI=$(oc get managementcluster apim-demo-mgmt -n $(params.CP4I_NAMESPACE) -o jsonpath='{.status.endpoints[?(@.name=="consumerCatalog")].uri}')"cp4i-demo-org/sandbox"
-                    echo "----------------------------"
-                    echo "API Gateway Service info:"
-                    echo
-                    echo "Management Endpoint URL: https://"$API_GTWY_MGR
-                    echo "API Endpoint Base URL: https://"$API_GTWY_EP
-                    echo "----------------------------"
-                    oc create configmap pipeline-extra-api-gtwy-demo-output -n default 
-                    oc patch configmap/pipeline-extra-api-gtwy-demo-output -p "{\"data\":{\"msg\":\"Pipeline run completed\",\"mgmt-endpoint-url\":\"https://${API_GTWY_MGR}\",\"api-endpoint-url\":\"https://${API_GTWY_EP}\"}}"
-
-                    if [[ ! -z "$(params.APIC_API_KEY)" ]]; then
-                      echo "----------------------------"
-                      echo "API Connect Portals CP4I Demo POrg..."
-                      echo
-                      echo "Sandbox Catalog:"
-                      echo "   UI URL:" $APIC_CONSUMER_CATALOG_URI
-                      echo
-                      echo "Demo Catalog:"
-                      echo "   UI URL:" $APIC_PTL_URI
-                      echo "   User name: andre"
-                      echo "   User password:" $(params.APPDEV_PWD)
-                      echo "----------------------------"
-                      oc create configmap pipeline-apic-ptl-demo-output -n default 
-                      oc patch configmap/pipeline-apic-ptl-demo-output -p "{\"data\":{\"msg\":\"Pipeline CP4I Config run completed\",\"sandbox-portal-url\":\"${APIC_CONSUMER_CATALOG_URI}\",\"demo-portal-url\":\"${APIC_PTL_URI}\",\"demo-portal-username\":\"andre\",\"demo-portal-user-password\":\"$(params.APPDEV_PWD)\"}}"
+            if [[ "$(tasks.setup-workspace.results.output)" == "true" ]]; then
+                if [[ "$(tasks.check-cp4i-version.results.output)" == "16.1.0" ]] || 
+                   [[ "$(tasks.check-cp4i-version.results.output)" == "16.1.1" ]] ||
+                   [[ "$(tasks.check-cp4i-version.results.output)" == "CD" ]]; then
+                    if [[ "$(params.DEPLOY_API_CONNECT_DEMOS)" == "true" ]]; then
+                        if [[ ! -z $(oc get deployment datapower-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]] &&
+                           [[ ! -z $(oc get deployment ibm-apiconnect -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]]; then
+                            if [[ ! -z "$(oc get APIConnectCluster apim-demo -n $(params.CP4I_NAMESPACE) --no-headers --ignore-not-found)" ]]; then 
+                                API_GTWY_MGR=$(oc get route remote-api-gw-gateway-manager -n cp4i-dp -o jsonpath='{.spec.host}')            
+                                API_GTWY_EP=$(oc get route remote-api-gw-gateway -n cp4i-dp -o jsonpath='{.spec.host}')
+                                APIC_PTL_URI=$(oc get portalcluster apim-demo-ptl -n $(params.CP4I_NAMESPACE) -o jsonpath='{.status.endpoints[?(@.name=="portalWeb")].uri}')"cp4i-demo-org/demo"
+                                APIC_CONSUMER_CATALOG_URI=$(oc get managementcluster apim-demo-mgmt -n $(params.CP4I_NAMESPACE) -o jsonpath='{.status.endpoints[?(@.name=="consumerCatalog")].uri}')"cp4i-demo-org/sandbox"
+                                echo "----------------------------"
+                                echo "API Gateway Service info:"
+                                echo
+                                echo "Management Endpoint URL: https://"$API_GTWY_MGR
+                                echo "API Endpoint Base URL: https://"$API_GTWY_EP
+                                echo "----------------------------"
+                                oc create configmap pipeline-extra-api-gtwy-demo-output -n default \
+                                  --from-literal=msg="Pipeline run completed" \
+                                  --from-literal=mgmt-endpoint-url="https://$API_GTWY_MGR" \
+                                  --from-literal=api-endpoint-url="https://$API_GTWY_EP"
+                                if [[ ! -z "$(params.APIC_API_KEY)" ]]; then
+                                    CHECK_API_KEY=$(oc get secret jgr-apic-api-key -n default --ignore-not-found -o jsonpath='{.data.check}' | base64 -d)
+                                    if [[ -z "${CHECK_API_KEY}" ]]; then
+                                        echo "----------------------------"
+                                        echo "API Connect Portals CP4I Demo POrg..."
+                                        echo
+                                        echo "Sandbox Catalog:"
+                                        echo "   UI URL:" $APIC_CONSUMER_CATALOG_URI
+                                        echo
+                                        echo "Demo Catalog:"
+                                        echo "   UI URL:" $APIC_PTL_URI
+                                        echo "   User name: andre"
+                                        echo "   User password:" $(oc get secret jgr-apic-consumer-org -n default -o jsonpath='{.data.password}' | base64 -d)
+                                        echo "----------------------------"
+                                        oc create configmap pipeline-apic-demo-output -n default \
+                                          --from-literal=msg="Pipeline CP4I Config run completed" \
+                                          --from-literal=sandbox-portal-url="$APIC_CONSUMER_CATALOG_URI" \
+                                          --from-literal=demo-portal-url="$APIC_PTL_URI" \
+                                          --from-literal=demo-portal-username=andre \
+                                          --from-literal=demo-portal-user-password="$(oc get secret jgr-apic-consumer-org -n default -o jsonpath='{.data.password}' | base64 -d)"
+                                    else
+                                        echo "----------------------------"
+                                        echo "APIC Demo assets were not configured because API Key was invalid."
+                                        echo "----------------------------"
+                                        oc create configmap pipeline-apic-demo-output -n default \
+                                          --from-literal=msg="Pipeline CP4I Config run completed, but APIC Demo assets were not configured because API Key was invalid."
+                                    fi
+                                    oc delete secret jgr-apic-api-key -n default --ignore-not-found
+                                else
+                                    echo "----------------------------"
+                                    echo "APIC Demo assets were not configured because API Key was not provided."
+                                    echo "----------------------------"
+                                    oc create configmap pipeline-apic-demo-output -n default \
+                                      --from-literal=msg="Pipeline CP4I Config run completed, but Demo Portal assets were not configured because API Key was not provided."
+                                fi
+                            else
+                              echo "----------------------------"
+                              echo "APIC Demo assets were not installed because APIC instance was not deployed."
+                              echo "----------------------------"
+                              oc create configmap pipeline-extra-api-gtwy-demo-output -n default \
+                                --from-literal=msg="Pipeline CP4I Config run completed, but Extra API Gateway was not deployed because APIC instance is not available."
+                              oc create configmap pipeline-apic-demo-output -n default \
+                                --from-literal=msg="Pipeline CP4I Config run completed, but APIC instance was not configured because APIC instance is not available."
+                            fi
+                        else
+                            echo "----------------------------"
+                            echo "APIC Demo assets were not installed because the corresponding Operators are not installed."
+                            echo "----------------------------"
+                            oc create configmap pipeline-extra-api-gtwy-demo-output -n default \
+                              --from-literal=msg="Pipeline CP4I Config run completed, but Extra API Gateway was not deployed because Operators are not available."
+                            oc create configmap pipeline-apic-demo-output -n default \
+                              --from-literal=msg="Pipeline CP4I Config run completed, but APIC instance was not configured because Operators are not available."
+                        fi
                     else
-                      echo "----------------------------"
-                      echo "APIC Demo Portal assets were not configured because API Key was not provided."
-                      echo "----------------------------"
-                      oc create configmap pipeline-apic-ptl-demo-output -n default 
-                      oc patch configmap/pipeline-apic-ptl-demo-output -p "{\"data\":{\"msg\":\"Pipeline CP4I Config run completed, but Demo Portal assets were not configured because API Key was not provided.\"}}"
+                        echo "----------------------------"
+                        echo "APIC Demo assets were not installed per user request."
+                        echo "----------------------------"
+                        oc create configmap pipeline-extra-api-gtwy-demo-output -n default \
+                          --from-literal=msg="Pipeline CP4I Config run completed, but Extra API Gateway was not deployed per user request."
+                        oc create configmap pipeline-apic-demo-output -n default \
+                          --from-literal=msg="Pipeline CP4I Config run completed, but APIC instance was not configured per user request."
                     fi
-                  else
-                    echo "----------------------------"
-                    echo "APIC Demo assets were not installed because APIC instance was not deployed."
-                    echo "----------------------------"
-                    oc create configmap pipeline-extra-api-gtwy-demo-output -n default 
-                    oc patch configmap/pipeline-extra-api-gtwy-demo-output -p "{\"data\":{\"msg\":\"Pipeline CP4I Config run completed, but Extra API Gateway was not deployed because APIC instance is not available.\"}}"
-                    oc create configmap pipeline-apic-ptl-demo-output -n default 
-                    oc patch configmap/pipeline-apic-ptl-demo-output -p "{\"data\":{\"msg\":\"Pipeline CP4I Config run completed, but APIC instance was not configured because APIC instance is not available.\"}}"
-                  fi
+                    if [[ "$(params.DEPLOY_DATAPOWER_DEMOS)" == "true" ]]; then
+                        if [[ ! -z $(oc get deployment datapower-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]]; then
+                            if [[ ! -z "$(oc get DataPowerService dp-demo -n $(params.DP_NAMESPACE) --no-headers --ignore-not-found)" ]]; then
+                                DP_WEBUI_URL="https://"$(oc get route dpwebui-route -n cp4i-dp -o jsonpath='{.spec.host}')
+                                echo "----------------------------"
+                                echo "DataPower Gateway access information:"
+                                echo "   Web UI URL:" $DP_WEBUI_URL
+                                echo "   User name: admin"
+                                echo "   User password: admin"
+                                echo "----------------------------"
+                                oc create configmap pipeline-dp-gtwy-demo-output -n default \
+                                  --from-literal=msg="Pipeline CP4I Config run completed" \
+                                  --from-literal=dp-demo-webui-url="$DP_WEBUI_URL" \
+                                  --from-literal=dp-demo-username=admin \
+                                  --from-literal=dp-demo-user-password=admin
+                            else
+                                echo "----------------------------"
+                                echo "DP Demo assets were not installed because DataPower Gateway Demo instance was not deployed."
+                                echo "----------------------------"
+                                oc create configmap pipeline-dp-gtwy-demo-output -n default \
+                                  --from-literal=msg="Pipeline CP4I Config run completed, but DataPower Gateway Demo instance is not available."
+                            fi
+                        else
+                            echo "----------------------------"
+                            echo "DP Demo assets were not installed because the corresponding Operator is not installed."
+                            echo "----------------------------"
+                            oc create configmap pipeline-dp-gtwy-demo-output -n default \
+                              --from-literal=msg="Pipeline CP4I Config run completed, but DataPower Gateway Demo instance was not configured because Operator is not available."
+                        fi
+                    else
+                        echo "----------------------------"
+                        echo "DP Demo assets were not installed per user request."
+                        echo "----------------------------"
+                        oc create configmap pipeline-dp-gtwy-demo-output -n default \
+                          --from-literal=msg="Pipeline CP4I Config run completed, but DataPower Gateway Demo instance was not installed per user request."
+                    fi
+                    if [[ "$(params.DEPLOY_EVENT_ENDPOINT_MANAGEMENT_DEMOS)" == "true" ]]; then
+                        if [[ ! -z $(oc get deployment ibm-eem-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]] &&
+                           [[ ! -z $(oc get deployment eventstreams-cluster-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]]; then
+                            if [[ ! -z "$(oc get eventendpointmanagement eem-demo-mgr -n $(params.CP4I_NAMESPACE) --no-headers --ignore-not-found)" ]] && 
+                               [[ ! -z "$(oc get eventstreams es-demo -n $(params.ES_NAMESPACE) --no-headers --ignore-not-found)" ]]; then
+                                if [[ ! -z "$(params.EEM_TOKEN)" ]]; then
+                                    CHECK_TOKEN=$(oc get secret jgr-eem-token -n default --ignore-not-found -o jsonpath='{.data.check}' | base64 -d)
+                                    if [[ -z "${CHECK_TOKEN}" ]]; then
+                                        echo "----------------------------"
+                                        echo "EEM Demo assets were configured successfully."
+                                        echo "----------------------------"
+                                        oc create configmap pipeline-cp4i-config-output -n default \
+                                          --from-literal=msg="Pipeline CP4I Config run completed, and EEM Demo assets were configured successfully."
+                                    else
+                                        echo "----------------------------"
+                                        echo "EEM Demo assets were not configured because Token was invalid."
+                                        echo "----------------------------"
+                                        oc create configmap pipeline-cp4i-config-output -n default \
+                                          --from-literal=msg="Pipeline CP4I Config run completed, but EEM Demo assets were not configured because Token was invalid."
+                                    fi
+                                    oc delete secret jgr-eem-token -n default --ignore-not-found
+                                else
+                                    echo "----------------------------"
+                                    echo "EEM Demo assets were not configured because Token was not provided."
+                                    echo "----------------------------"
+                                    oc create configmap pipeline-cp4i-config-output -n default \
+                                      --from-literal=msg="Pipeline CP4I Config run completed, but EEM assets were not configured because Token was not provided."
+                                fi
+                            else
+                              echo "----------------------------"
+                              echo "EEM Demo assets were not installed because ES and/or EEM instances were not deployed."
+                              echo "----------------------------"
+                              oc create configmap pipeline-cp4i-config-output -n default \
+                                --from-literal=msg="Pipeline CP4I Config run completed, but EEM instance was not configured because ES and/or EEM instances are not available."
+                            fi
+                        else
+                            echo "----------------------------"
+                            echo "EEM Demo assets were not installed because the corresponding Operators are not installed."
+                            echo "----------------------------"
+                            oc create configmap pipeline-cp4i-config-output -n default \
+                              --from-literal=msg="Pipeline CP4I Config run completed, but EEM instance was not configured because Operators are not available."
+                        fi
+                    else
+                        echo "----------------------------"
+                        echo "EEM Demo assets were not installed per user request."
+                        echo "----------------------------"
+                        oc create configmap pipeline-cp4i-config-output -n default \
+                          --from-literal=msg="Pipeline CP4I Config run completed, but EEM instance was not configured per user request."
+                    fi
+                    if [[ "$(params.DEPLOY_MQ_DEMOS)" == "true" ]]; then
+                        if [[ ! -z $(oc get deployment ibm-mq-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]]; then
+                            if [[ ! -z "$(oc get queuemanager qmgr-demo -n $(params.CP4I_NAMESPACE) --no-headers --ignore-not-found)" ]]; then 
+                                oc extract secret/qmgr-demo-tls-secret -n $(params.CP4I_NAMESPACE) --keys=tls.crt
+                                oc extract secret/qmgr-demo-tls-secret -n $(params.CP4I_NAMESPACE) --keys=tls.key 
+                                openssl pkcs12 -export -in tls.crt -inkey tls.key -out qmgr-server-tls.p12 -name "qmgr server pkcs12" -passout pass:password
+                                keytool -importkeystore -srckeystore qmgr-server-tls.p12 -srcstoretype PKCS12 -srcstorepass password -destkeystore mqexplorerts.jks -deststoretype JKS -deststorepass password
+                                rm -f tls.crt
+                                rm -f tls.key
+                                rm -f qmgr-server-tls.p12
+                                QMGR_HOST_NAME=$(oc get route qmgr-demo-ibm-mq-qm -n $(params.CP4I_NAMESPACE) -o jsonpath='{.status.ingress[0].host}')
+                                echo "----------------------------"
+                                echo "Queue Manager info to connect from MQ Explorer..."
+                                echo "   Name: QMGRDEMO"
+                                echo "   Host Name:" $QMGR_HOST_NAME
+                                echo "   Port Number: 443"
+                                echo "   Channel Name: EXTAPP.TO.MQ"
+                                echo "   SSL Cipher: ECDHE_RSA_AES_128_CBC_SHA256"
+                                echo "   Store Password: password"
+                                echo "----------------------------"
+                                oc create configmap pipeline-qmgr-demo-output -n default \
+                                  --from-literal=msg="Pipeline CP4I Config run completed" \
+                                  --from-literal=qmgr-name=QMGRDEMO \
+                                  --from-literal=qmgr-host-name="$QMGR_HOST_NAME" \
+                                  --from-literal=qmgr-port-number=443 \
+                                  --from-literal=qmgr-channel="EXTAPP.TO.MQ" \
+                                  --from-literal=qmgr-ssl-cipher=ECDHE_RSA_AES_128_CBC_SHA256 \
+                                  --from-literal=qmgr-store-password=password \
+                                  --from-file=mqexplorerts.jks
+                            else
+                                echo "----------------------------"
+                                echo "MQ Demo assets were not installed because Queue Manager Demo instance was not deployed."
+                                echo "----------------------------"
+                                oc create configmap pipeline-qmgr-demo-output -n default \
+                                  --from-literal=msg="Pipeline CP4I Config run completed, but MQ Explorer JKS certificate was not configured because Queue Manager Demo instance is not available."
+                            fi
+                            if [[ ! -z "$(oc get queuemanager qmgr-native-ha -n $(params.MQ_NAMESPACE) --no-headers --ignore-not-found)" ]]; then 
+                                QMGR_NAME='qmgr-native-ha'
+                                QMGR_INT_NAME='QMGRNATIVEHA'
+                                QMGR_CHANNEL="MTLS.SVRCONN"
+                                QMGR_CERT_LABEL="qmgr-native-ha-app"
+                                QMGR_HOST=$(oc get route ${QMGR_NAME}-ibm-mq-qm -n $(params.MQ_NAMESPACE) -o jsonpath="{.spec.host}")
+            ( echo "cat <<EOF" ; cat templates/template-mq-nha-ccdt.json ;) | \
+                QMGR_CHANNEL=${QMGR_CHANNEL} \
+                QMGR_HOST=${QMGR_HOST} \
+                QMGR_INT_NAME=${QMGR_INT_NAME} \
+                QMGR_CERT_LABEL=${QMGR_CERT_LABEL} \
+                sh > mqnhaccdt.json
+                                oc extract secret/qmgr-native-ha-tls-secret -n $(params.MQ_NAMESPACE) --keys=ca.crt
+                                oc extract secret/qmgr-native-ha-tls-secret -n $(params.MQ_NAMESPACE) --keys=tls.crt
+                                oc extract secret/qmgr-native-ha-tls-secret -n $(params.MQ_NAMESPACE) --keys=tls.key
+                                openssl pkcs12 -export -in tls.crt -inkey tls.key -certfile ca.crt -out qmgr-server-nha-tls.p12 -name qmgr-native-ha-app -passout pass:password
+            ( echo "cat <<EOF" ; cat templates/template-mq-nha-mqclient.ini ;) | \
+                QMGR_CCDT_NAME='mqnhaccdt' \
+                QMGR_CERT_NAME='qmgr-server-nha-tls' \
+                sh > mqclient-nha.ini
+                                rm -f ca.crt
+                                rm -f tls.crt
+                                rm -f tls.key
+                                echo "----------------------------"
+                                echo "Info to demo MQ NativeHA..."
+                                echo "   QMgr Name: QMGRNATIVEHA"
+                                echo "   Queue Name: EXAMPLE.QUEUE"
+                                echo "   Files included in ConfigMap:"
+                                echo "      CCDT"
+                                echo "      mqclient.ini"
+                                echo "      P12 certificate"
+                                echo "----------------------------"
+                                oc create configmap pipeline-qmgr-nha-output -n default \
+                                  --from-literal=msg="Pipeline CP4I Config run completed" \
+                                  --from-literal=qmgr-name=QMGRNATIVEHA \
+                                  --from-literal=queue-name=EXAMPLE.QUEUE \
+                                  --from-file=mqnhaccdt.json \
+                                  --from-file=mqclient-nha.ini \
+                                  --from-file=qmgr-server-nha-tls.p12
+                            else
+                                echo "----------------------------"
+                                echo "MQ NativeHA assets were not installed because Queue Manager instance was not deployed."
+                                echo "----------------------------"
+                                oc create configmap pipeline-qmgr-nha-output -n default \
+                                  --from-literal=msg="Pipeline CP4I Config run completed, but MQ CCDT and MQClient.ini files were not configured because Queue Manager instance with NativeHA configuration is not available."
+                            fi
+                            if [[ ! -z "$(oc get queuemanager exampleqm -n $(params.MQ_NHACRR_DC1) --no-headers --ignore-not-found)" ]] &&
+                               [[ ! -z "$(oc get queuemanager exampleqm -n $(params.MQ_NHACRR_DC2) --no-headers --ignore-not-found)" ]]; then
+                                QMGR_NAME='exampleqm'
+                                QMGR_INT_NAME='EXAMPLEQM'
+                                QMGR_CHANNEL_BASE="MTLS.SVRCONN."
+                                QMGR_DCS=($(params.MQ_NHACRR_DC1) $(params.MQ_NHACRR_DC2))
+                                for DC in "${QMGR_DCS[@]}"
+                                do
+                                    QMGR_HOST=$(oc get route ${QMGR_NAME}-ibm-mq-qm -n $DC -o jsonpath="{.spec.host}")
+                                    QMGR_DC_NAME=$(echo $DC | tr '[:lower:]' '[:upper:]')
+                                    QMGR_CHANNEL=${QMGR_CHANNEL_BASE}${QMGR_DC_NAME}
+                                    QMGR_CERT_LABEL="nhacrr-$DC-app"
+            ( echo "cat <<EOF" ; cat templates/template-mq-crr-ccdt.json ;) | \
+                QMGR_CHANNEL=${QMGR_CHANNEL} \
+                QMGR_HOST=${QMGR_HOST} \
+                QMGR_INT_NAME=${QMGR_INT_NAME} \
+                QMGR_CERT_LABEL=${QMGR_CERT_LABEL} \
+                sh > mqcrrccdt-$DC.json
+                                    oc extract secret/nhacrr-$DC-app-tls -n $DC --keys=ca.crt
+                                    oc extract secret/nhacrr-$DC-app-tls -n $DC --keys=tls.crt
+                                    oc extract secret/nhacrr-$DC-app-tls -n $DC --keys=tls.key
+                                    openssl pkcs12 -export -in tls.crt -inkey tls.key -certfile ca.crt -out qmgr-server-tls-${DC}.p12 -name "nhacrr-${DC}-app" -passout pass:password
+            ( echo "cat <<EOF" ; cat templates/template-mq-crr-mqclient.ini ;) | \
+                QMGR_DC_NAME=${DC}${QMGR_DC} \
+                sh > mqclient-$DC.ini
+                                    rm -f ca.crt
+                                    rm -f tls.crt
+                                    rm -f tls.key
+                                done
+                                echo "----------------------------"
+                                echo "Info to demo MQ NativeHA CRR..."
+                                echo "   QMgr Name: EXAMPLEQM"
+                                echo "   Queue Name: EXAMPLE.QUEUE"
+                                echo "   Files included in ConfigMap:"
+                                echo "      CCDTs"
+                                echo "      mqclient.ini"
+                                echo "      P12 certificates"
+                                echo "----------------------------"
+                                oc create configmap pipeline-qmgr-crr-output -n default \
+                                  --from-literal=msg="Pipeline CP4I Config run completed" \
+                                  --from-literal=qmgr-name=EXAMPLEQM \
+                                  --from-literal=queue-name=EXAMPLE.QUEUE \
+                                  --from-file=mqcrrccdt-$(params.MQ_NHACRR_DC1).json \
+                                  --from-file=mqclient-$(params.MQ_NHACRR_DC1).ini \
+                                  --from-file=qmgr-server-tls-$(params.MQ_NHACRR_DC1).p12 \
+                                  --from-file=mqcrrccdt-$(params.MQ_NHACRR_DC2).json \
+                                  --from-file=mqclient-$(params.MQ_NHACRR_DC2).ini \
+                                  --from-file=qmgr-server-tls-$(params.MQ_NHACRR_DC2).p12
+                            else
+                                echo "----------------------------"
+                                echo "MQ CRR assets were not installed because Queue Manager instance was not deployed."
+                                echo "----------------------------"
+                                oc create configmap pipeline-qmgr-crr-output -n default \
+                                  --from-literal=msg="Pipeline CP4I Config run completed, but MQ CCDT and MQClient.ini files were not configured because Queue Manager instance with CRR configuration is not available."
+                            fi
+                        else
+                            echo "----------------------------"
+                            echo "MQ Demo assets were not installed because the corresponding Operator is not installed."
+                            echo "----------------------------"
+                            oc create configmap pipeline-qmgr-demo-output -n default \
+                              --from-literal=msg="Pipeline CP4I Config run completed, but Queue Manager Demo instance was not configured because Operator is not available."
+                            echo "----------------------------"
+                            echo "MQ CRR assets were not installed because the corresponding Operator is not installed."
+                            echo "----------------------------"
+                            oc create configmap pipeline-qmgr-crr-output -n default \
+                              --from-literal=msg="Pipeline CP4I Config run completed, but MQ CCDT and MQClient.ini files were not configured because Queue Manager instance with CRR configuration is not available."
+                        fi
+                    else
+                        echo "----------------------------"
+                        echo "MQ Demo assets were not installed per user request."
+                        echo "----------------------------"
+                        oc create configmap pipeline-qmgr-demo-output -n default \
+                          --from-literal=msg="Pipeline CP4I Config run completed, but Queue Manager Demo instance was not installed per user request."
+                        echo "----------------------------"
+                        echo "MQ CRR assets were not installed per user request."
+                        echo "----------------------------"
+                        oc create configmap pipeline-qmgr-crr-output -n default \
+                          --from-literal=msg="Pipeline CP4I Config run completed, but MQ CCDT and MQClient.ini files were not configured because Queue Manager instance with CRR configuration is not available."
+                    fi
                 else
-                  echo "----------------------------"
-                  echo "APIC Demo assets were not installed because the corresponding Operators are not installed."
-                  echo "----------------------------"
-                  oc create configmap pipeline-extra-api-gtwy-demo-output -n default 
-                  oc patch configmap/pipeline-extra-api-gtwy-demo-output -p "{\"data\":{\"msg\":\"Pipeline CP4I Config run completed, but Extra API Gateway was not deployed because Operators are not available.\"}}"
-                  oc create configmap pipeline-apic-ptl-demo-output -n default 
-                  oc patch configmap/pipeline-apic-ptl-demo-output -p "{\"data\":{\"msg\":\"Pipeline CP4I Config run completed, but APIC instance was not configured because Operators are not available.\"}}"
+                    if [[ "$(tasks.check-cp4i-version.results.output)" == "0.0.0" ]]; then
+                        echo "----------------------------"
+                        echo "Pipeline CP4I Demo didn't run. There is no instance of Platform UI in the namespace provided."              
+                        echo "Check parameter CP4I_NAMESPACES has the proper value or deploy an instance."
+                        echo "----------------------------"
+                        oc create configmap pipeline-cp4i-config-output -n default \
+                          --from-literal=msg="Pipeline CP4I Demo didn't run. There is no instance of Platform UI in the namespace provided."
+                    else
+                        echo "----------------------------"
+                        echo "Pipeline CP4I Demo didn't run. The version installed of Platform UI is not supported by this Pipeline."              
+                        echo "Supported versions are 16.1.0, 16.1.1 or 16.1.2. Upgrade Platform UI and try again."
+                        echo "----------------------------"
+                        oc create configmap pipeline-cp4i-config-output -n default \
+                          --from-literal=msg="Pipeline CP4I Demo didn't run. The version installed of Platform UI is not compatible."
+                    fi
                 fi
-              else
-                echo "----------------------------"
-                echo "APIC Demo assets were not installed per user request."
-                echo "----------------------------"
-                oc create configmap pipeline-extra-api-gtwy-demo-output -n default 
-                oc patch configmap/pipeline-extra-api-gtwy-demo-output -p "{\"data\":{\"msg\":\"Pipeline CP4I Config run completed, but Extra API Gateway was not deployed per user request.\"}}"
-                oc create configmap pipeline-apic-ptl-demo-output -n default 
-                oc patch configmap/pipeline-apic-ptl-demo-output -p "{\"data\":{\"msg\":\"Pipeline CP4I Config run completed, but APIC instance was not configured per user request.\"}}"
-              fi
-
             else
-
-              echo "----------------------------"
-
-              echo "Pipeline CP4I Config couldn't run successfully."
-              
-              echo "Check the logs in setup-workspace task for more details."
-
-              echo "----------------------------"
-
-              oc create configmap pipeline-cp4i-config-output -n default 
-            
-              oc patch configmap/pipeline-cp4i-config-output -p "{\"data\":{\"msg\":\"Pipeline CP4I Config couldn't run. Check the logs in setup-workspace task for more details.\"}}"
-
+                echo "----------------------------"
+                echo "Pipeline CP4I Config couldn't run successfully."
+                echo "Check the logs in setup-workspace task for more details."
+                echo "----------------------------"
+                oc create configmap pipeline-cp4i-config-output -n default \
+                  --from-literal=msg="Pipeline CP4I Config couldn't run. Check the logs in setup-workspace task for more details."
             fi
         - name: VERSION
           value: latest
       taskRef:
         kind: Task
         name: jgr-task-0.2
+      workspaces:
+        - name: cp4i-ws
   params:
     - name: CP4I_NAMESPACE
       default: tools
@@ -122,18 +402,6 @@ spec:
       default: tools
       description: Namespace to deploy Event Streams assets
       type: string
-    - name: CP4I_VERSION
-      default: 16.1.0
-      description: Version of CP4I Platform UI to deploy
-      type: string
-    - name: MQ_VERSION
-      default: 9.4.0.6-r1
-      description: Version of MQ to deploy
-      type: string
-    - name: ES_VERSION
-      default: 11.5.1
-      description: Version of ES for Kafka Connect
-      type: string
     - name: DEPLOY_EVENT_STREAMS_DEMOS
       default: 'true'
       description: Deploy event streams demo assets
@@ -141,6 +409,10 @@ spec:
     - name: DEPLOY_API_CONNECT_DEMOS
       default: 'true'
       description: Deploy apiconnect demo assets
+      type: string
+    - name: DEPLOY_DATAPOWER_DEMOS
+      default: 'true'
+      description: Deploy datapower demo assets
       type: string
     - name: DEPLOY_EVENT_ENDPOINT_MANAGEMENT_DEMOS
       default: 'true'
@@ -158,17 +430,21 @@ spec:
       default: cp4i-dp
       description: Namespace to deploy Extra API Gateway
       type: string
+    - name: MQ_NAMESPACE
+      default: cp4i-mq
+      description: Namespace to deploy Extra Queue Managers
+      type: string
     - name: MQ_UNIFORM_CLUSTER_NAMESPACE
       default: cp4i
       description: Namespace to deploy MQ Uniform Cluster assets
       type: string
-    - name: MAILTRAP_USER
-      default: ''
-      description: User to configure mail server
+    - name: MQ_NHACRR_DC1
+      default: london
+      description: Namespace to deploy live MQ NHA CRR instance
       type: string
-    - name: MAILTRAP_PWD
-      default: ''
-      description: Password to configure mail server
+    - name: MQ_NHACRR_DC2
+      default: rome
+      description: Namespace to deploy recovery MQ NHA CRR instance
       type: string
     - name: SF_USER
       default: ''
@@ -206,21 +482,13 @@ spec:
       default: ''
       description: API Key to access APIC
       type: string
-    - name: APPDEV_PWD
-      default: ''
-      description: Password for App Dev Consumer Org Admin
-      type: string
     - name: OCP_BLOCK_STORAGE
-      default: ocs-storagecluster-ceph-rbd
+      default: ocs-external-storagecluster-ceph-rbd
       description: Block Storage Class for Cluster
       type: string
     - name: OCP_FILE_STORAGE
-      default: ocs-storagecluster-cephfs
+      default: ocs-external-storagecluster-cephfs
       description: File Storage Class for Cluster
-      type: string
-    - name: REPO_SIGNATURE
-      default: 'JGR-20250616-001'
-      description: CP4I Deployer Helper Repo Signature
       type: string
     - name: TRACE
       default: 'true'
@@ -244,15 +512,17 @@ spec:
           value: >-
             set -o xtrace
 
+            REPO_SIGNATURE="JGR-20250804-002"
+
             echo "Setting up workspace for pipeline"
             
             cd workspace/cp4i-ws
             
-            git clone --single-branch --branch main https://github.com/gomezrjo/cp4i-deployer-helper.git
+            git clone --single-branch --branch dev https://github.com/gomezrjo/cp4i-deployer-helper.git
 
             echo "Checking helper repo."
 
-            if grep -q "$(params.REPO_SIGNATURE)" cp4i-deployer-helper/signature; then
+            if grep -q "${REPO_SIGNATURE}" cp4i-deployer-helper/signature; then
                 echo "Valid signature in helper repo."
             else
                 echo "Helper repo is out of sync, update this repo."
@@ -286,15 +556,64 @@ spec:
 
             printf true | tee $(results.output.path)
 
-            tar -xvzf cp4i-deployer-helper/extras/toolkit-linux.tgz
-
-            chmod +x apic
-
-            git clone --single-branch --branch main https://github.com/gomezrjo/cp4i-ace-artifacts.git
+            git clone --single-branch --branch dev https://github.com/gomezrjo/cp4i-ace-artifacts.git
 
             echo "Workspace for pipeline is ready"
         - name: VERSION
           value: latest
+      retries: 3
+      taskRef:
+        kind: Task
+        name: jgr-task-0.2
+      timeout: 3h0m0s 
+      workspaces:
+        - name: cp4i-ws
+    - name: check-cp4i-version
+      params:
+        - name: SCRIPT
+          value: >-
+            set -o xtrace
+
+            cd workspace/cp4i-ws
+            
+            echo "Getting Platform UI version"
+
+            CP4I_VER_NUM=$(oc get platformnavigator cp4i-navigator -n $(params.CP4I_NAMESPACE) --ignore-not-found -o jsonpath={.spec.version})
+
+            if [[ -z "${CP4I_VER_NUM}" ]]; then
+                echo "Platform UI instance not deployed"
+                CP4I_VER="0.0.0"
+            else
+                case "${CP4I_VER_NUM}" in
+                    "16.1.0")
+                        tar -xvzf cp4i-deployer-helper/extras/toolkit-linux-10.0.8.2-ifix2.tgz
+                        chmod +x apic
+                        CP4I_VER="${CP4I_VER_NUM}"
+                        ;;
+                    "16.1.1")
+                        tar -xvzf cp4i-deployer-helper/extras/toolkit-linux.tgz 
+                        chmod +x apic
+                        CP4I_VER="${CP4I_VER_NUM}"
+                        ;;
+                    "16.1.2")
+                        tar -xvzf cp4i-deployer-helper/extras/toolkit-linux-10.0.10.0.tgz
+                        chmod +x apic
+                        CP4I_VER="CD"
+                        ;;
+                    *)
+                        echo "Platform UI instance version is not supported by pipeline"
+                        CP4I_VER="${CP4I_VER_NUM}"
+                        ;;
+                esac
+            fi
+            
+            echo "Passing CP4I version to the rest of the pipeline"
+
+            printf "${CP4I_VER}" | tee $(results.output.path)
+        - name: VERSION
+          value: latest
+      runAfter:
+        - setup-workspace
       retries: 3
       taskRef:
         kind: Task
@@ -349,26 +668,35 @@ spec:
                     oc patch config.imageregistry.operator.openshift.io/cluster --type=merge -p '{"spec":{"rolloutStrategy":"Recreate","replicas":1}}'
                     echo "Creating PVC for Image Registry"
                     oc create -f pvc.yaml -n openshift-image-registry
+                    echo "Deploying Image Registry instance"
                     oc patch configs.imageregistry.operator.openshift.io/cluster --type merge -p '{"spec":{"storage":{"pvc":{"claim":"image-registry-storage"}}}}'
                     while ! oc wait --for=jsonpath='{.status.conditions[1].status}'=True deployment/image-registry -n openshift-image-registry 2>/dev/null; do sleep 30; done
-                    echo "Image Registry instance is deployed"   
+                    echo "Image Registry instance is ready"
+                    printf true | tee $(results.output.path)   
                 else
                     echo "Image Registry operator is NOT available"
+                    printf false | tee $(results.output.path)
                 fi
             else
               echo "Image Registry instance is available"
+              printf true | tee $(results.output.path)
             fi
-            
-            echo "Image Registry is ready"
         - name: VERSION
           value: latest
       runAfter:
-        - setup-workspace
+        - check-cp4i-version
       retries: 3
       taskRef:
         kind: Task
         name: jgr-task-0.2
-      timeout: 3h0m0s 
+      timeout: 3h0m0s
+      when:
+        - input: "$(tasks.setup-workspace.results.output)"
+          operator: in
+          values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"] 
       workspaces:
         - name: cp4i-ws
     - name: create-extra-namespaces
@@ -377,7 +705,7 @@ spec:
           value: |-
             set -o xtrace
 
-            CP4I_NAMESPACES=($(params.DP_NAMESPACE) $(params.MQ_UNIFORM_CLUSTER_NAMESPACE))
+            CP4I_NAMESPACES=($(params.DP_NAMESPACE) $(params.MQ_NAMESPACE) $(params.MQ_UNIFORM_CLUSTER_NAMESPACE) $(params.MQ_NHACRR_DC1) $(params.MQ_NHACRR_DC2))
 
             for NS in "${CP4I_NAMESPACES[@]}"
 
@@ -405,6 +733,9 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
     - name: get-entitlement-key
       params:
         - name: KEY_ID
@@ -420,13 +751,16 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
     - name: create-ibm-entitlement-key
       params:
         - name: SCRIPT
           value: >-
             set -o xtrace
 
-            CP4I_NAMESPACES=($(params.DP_NAMESPACE) $(params.MQ_UNIFORM_CLUSTER_NAMESPACE))
+            CP4I_NAMESPACES=($(params.DP_NAMESPACE) $(params.MQ_NAMESPACE) $(params.MQ_UNIFORM_CLUSTER_NAMESPACE) $(params.MQ_NHACRR_DC1) $(params.MQ_NHACRR_DC2))
 
             for NS in "${CP4I_NAMESPACES[@]}"
 
@@ -470,6 +804,9 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
     - name: event-streams-instance-configuration
       params:
         - name: SCRIPT
@@ -520,6 +857,9 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
         - input: "$(params.DEPLOY_EVENT_STREAMS_DEMOS)"
           operator: in
           values: ["true"]
@@ -549,11 +889,29 @@ spec:
 
             ES_BOOTSTRAP_SERVER=$(oc get eventstreams ${ES_INST_NAME} -n $(params.ES_NAMESPACE) -o=jsonpath='{range .status.kafkaListeners[*]}{.name} {.bootstrapServers}{"\n"}{end}' | awk '$1=="authsslsvc" {print $2}')
 
-            echo "Updating template with Bootsrap info..."
+            echo "Updating template with Bootstrap info..."
+
+            case "$(tasks.check-cp4i-version.results.output)" in
+
+                "16.1.1")
+            
+                    ES_VERSION='11.7.0'
+
+                    ;;
+
+                "16.1.0" | "CD")
+                    
+                    ES_VERSION="11.8.1"
+                    
+                    ;;
+            
+            esac
+
+            
 
             ( echo "cat <<EOF" ; cat templates/template-es-kafka-connect.yaml ;) | \
                 ES_BOOTSTRAP_SERVER=${ES_BOOTSTRAP_SERVER} \
-                ES_VERSION=$(params.ES_VERSION) \
+                ES_VERSION=${ES_VERSION} \
                 sh > es-kafka-connect.yaml
 
             echo "Creating Kafka Connect instance..."
@@ -570,7 +928,7 @@ spec:
 
             ( echo "cat <<EOF" ; cat templates/template-es-kafka-connect-watsonx.yaml ;) | \
                 ES_BOOTSTRAP_SERVER=${ES_BOOTSTRAP_SERVER} \
-                ES_VERSION=$(params.ES_VERSION) \
+                ES_VERSION=${ES_VERSION} \
                 sh > es-kafka-connect-watsonx.yaml
 
             echo "Creating Kafka Connect instance..."
@@ -593,6 +951,12 @@ spec:
         name: jgr-task-0.2
       when:
         - input: "$(tasks.setup-workspace.results.output)"
+          operator: in
+          values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
+        - input: "$(tasks.setup-image-registry.results.output)"
           operator: in
           values: ["true"]
         - input: "$(params.DEPLOY_EVENT_STREAMS_DEMOS)"
@@ -674,6 +1038,12 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
+        - input: "$(tasks.setup-image-registry.results.output)"
+          operator: in
+          values: ["true"]
         - input: "$(params.DEPLOY_EVENT_STREAMS_DEMOS)"
           operator: in
           values: ["true"]
@@ -735,6 +1105,9 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
         - input: "$(params.DEPLOY_EVENT_STREAMS_DEMOS)"
           operator: in
           values: ["true"]
@@ -830,6 +1203,9 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
         - input: "$(params.DEPLOY_EVENT_STREAMS_DEMOS)"
           operator: in
           values: ["true"]
@@ -872,6 +1248,8 @@ spec:
 
             ES_INST_NAME='es-demo'
 
+            CLEAN_CONFIG='true'
+
             EEM_API=$(oc get route -n $(params.CP4I_NAMESPACE) ${EEM_INST_NAME}-ibm-eem-admin -ojsonpath='https://{.spec.host}')
 
             ES_BOOTSTRAP_SERVER=$(oc get eventstreams ${ES_INST_NAME} -n $(params.ES_NAMESPACE) -o=jsonpath='{range .status.kafkaListeners[*]}{.name} {.bootstrapServers}{"\n"}{end}' | awk '$1=="authsslsvc" {print $2}')
@@ -892,124 +1270,150 @@ spec:
 
             echo "Checking if ES Cluster exists..."
 
-            curl -X GET -s -k \
+            RESP_CODE=$(curl -X GET -s -k \
                 --dump-header eem-api-header \
                 -H 'Accept: application/json' \
                 -H 'Content-Type: application/json' \
                 -H "Authorization: Bearer $(params.EEM_TOKEN)" \
                 --output eem-response-data.json \
                 --write-out '%{response_code}' \
-                $EEM_API/eem/clusters
+                $EEM_API/eem/clusters)
             
-            clusterId=$(jq 'map(select(.name=="es-demo")) | .[] .id' eem-response-data.json)
-            
-            if [[ -z $clusterId ]]; then
-                echo "Cluster does NOT exist."
-                echo "Creating ES Cluster reference in EEM..."
-                curl -X POST -s -k \
-                    --dump-header eem-api-header \
-                    -H 'Accept: application/json' \
-                    -H 'Content-Type: application/json' \
-                    -H "Authorization: Bearer $(params.EEM_TOKEN)" \
-                    --data @eem-es-cluster.json \
-                    --output eem-response-data.json \
-                    --write-out '%{response_code}' \
-                    $EEM_API/eem/clusters
-                clusterId=$(jq .id eem-response-data.json)
+            if [[ "${RESP_CODE}" != "200" ]]; then
+                if [[ "${RESP_CODE}" == "401" ]]; then
+                    echo "EEM Token is not valid. Check the value and correct it."
+                    oc create secret generic jgr-eem-token -n default --from-literal=check="invalid"
+                else
+                    echo "There is a problem accessing EEM. Response code ${RESP_CODE}"
+                    echo "Check EEM & ES are up and running and properly configured."
+                    oc create secret generic jgr-eem-token -n default --from-literal=check="config-error"
+                fi
+                clusterId="00000000-0000-0000-0000-000000000000"
+                CLEAN_CONFIG='false'
             else
-                echo "Cluster does exist."
-                echo "ClusterID = " $clusterId
+                clusterId=$(jq 'map(select(.name=="es-demo")) | .[] .id' eem-response-data.json)            
+                if [[ -z $clusterId ]]; then
+                    echo "Cluster does NOT exist."
+                    echo "Creating ES Cluster reference in EEM..."
+                    RESP_CODE=$(curl -X POST -s -k \
+                        --dump-header eem-api-header \
+                        -H 'Accept: application/json' \
+                        -H 'Content-Type: application/json' \
+                        -H "Authorization: Bearer $(params.EEM_TOKEN)" \
+                        --data @eem-es-cluster.json \
+                        --output eem-response-data.json \
+                        --write-out '%{response_code}' \
+                        $EEM_API/eem/clusters)
+                    if [[ "${RESP_CODE}" != "200" ]]; then
+                        echo "There is a problem accessing EEM. Response code ${RESP_CODE}"
+                        echo "Check EEM & ES are up and running and properly configured."
+                        oc create secret generic jgr-eem-token -n default --from-literal=check="config-error"
+                        clusterId="00000000-0000-0000-0000-000000000000"
+                        CLEAN_CONFIG='false'
+                    else
+                        clusterId=$(jq .id eem-response-data.json)
+                    fi                    
+                else
+                    echo "Cluster does exist."
+                    echo "ClusterID = " $clusterId
+                fi
             fi
 
-            topics=("CANCELLATIONS" "CUSTOMERS.NEW" "DOOR.BADGEIN" "ORDERS.ONLINE" "ORDERS.NEW" "STOCK.NOSTOCK" "SENSOR.READINGS" "STOCK.MOVEMENT" "PRODUCT.RETURNS" "PRODUCT.REVIEWS" "cp4i-es-demo-topic")
+            if [[ "${clusterId}" != "00000000-0000-0000-0000-000000000000" ]]; then
+                topics=("CANCELLATIONS" "CUSTOMERS.NEW" "DOOR.BADGEIN" "ORDERS.ONLINE" "ORDERS.NEW" "ORDERS.ABANDONED" "STOCK.NOSTOCK" "SENSOR.READINGS" "STOCK.MOVEMENT" "PRODUCT.RETURNS" "PRODUCT.REVIEWS" "TRANSACTIONS" "cp4i-es-demo-topic")
 
-            for topic in "${topics[@]}"
+                for topic in "${topics[@]}"
 
-            do
+                do
 
-                echo "Checking if Topic already exists..."
-                
-                curl -X GET -s -k \
-                      --dump-header eem-api-header \
-                      -H 'Accept: application/json' \
-                      -H 'Content-Type: application/json' \
-                      -H "Authorization: Bearer $(params.EEM_TOKEN)" \
-                      --output eem-response-data.json \
-                      --write-out '%{response_code}' \
-                      $EEM_API/eem/eventsources
-                
-                topicName=$(jq -r '.topic.name'  templates/template-eem-eventsource-$topic.json)    
-                
-                eventSourceId=$(jq --arg topicName "$topicName" 'map(select(.topic.name==$topicName)) | .[] .id' eem-response-data.json)
-                
-                if [[ -z $eventSourceId ]]; then
-                    echo "Event Source does NOT exist"
-                    echo "Creating Topic..." $topicName
-                    curl -X POST -s -k \
+                    echo "Checking if Topic already exists..."
+                    
+                    curl -X GET -s -k \
                           --dump-header eem-api-header \
                           -H 'Accept: application/json' \
                           -H 'Content-Type: application/json' \
                           -H "Authorization: Bearer $(params.EEM_TOKEN)" \
-                          --data "$(cat templates/template-eem-eventsource-$topic.json | jq ".clusterId |= ${clusterId}")" \
                           --output eem-response-data.json \
                           --write-out '%{response_code}' \
                           $EEM_API/eem/eventsources
-                    eventSourceId=$(jq .id eem-response-data.json)
-                else
-                      echo "Event Source does exist"  
-                      echo "EventSourceID = " $eventSourceId                
-                fi
+                    
+                    topicName=$(jq -r '.topic.name'  templates/template-eem-eventsource-$topic.json)    
+                    
+                    eventSourceId=$(jq --arg topicName "$topicName" 'map(select(.topic.name==$topicName)) | .[] .id' eem-response-data.json)
+                    
+                    if [[ -z $eventSourceId ]]; then
+                        echo "Event Source does NOT exist"
+                        echo "Creating Topic..." $topicName
+                        curl -X POST -s -k \
+                              --dump-header eem-api-header \
+                              -H 'Accept: application/json' \
+                              -H 'Content-Type: application/json' \
+                              -H "Authorization: Bearer $(params.EEM_TOKEN)" \
+                              --data "$(cat templates/template-eem-eventsource-$topic.json | jq ".clusterId |= ${clusterId}")" \
+                              --output eem-response-data.json \
+                              --write-out '%{response_code}' \
+                              $EEM_API/eem/eventsources
+                        eventSourceId=$(jq .id eem-response-data.json)
+                    else
+                          echo "Event Source does exist"  
+                          echo "EventSourceID = " $eventSourceId                
+                    fi
 
-                echo "Checking if Option already exists..."
+                    echo "Checking if Option already exists..."
 
-                curl -X GET -s -k \
-                      --dump-header eem-api-header \
-                      -H 'Accept: application/json' \
-                      -H 'Content-Type: application/json' \
-                      -H "Authorization: Bearer $(params.EEM_TOKEN)" \
-                      --output eem-response-data.json \
-                      --write-out '%{response_code}' \
-                      $EEM_API/eem/options
-
-                optionName=$(jq -r '.alias' templates/template-eem-option-$topic.json)    
-                
-                asyncapiOptionId=$(jq -r --arg optionName "$optionName" 'map(select(.alias==$optionName)) | .[] .id' eem-response-data.json)
-                
-                if [[ -z $asyncapiOptionId ]]; then
-                    echo "Option does NOT exist"
-                    echo "Creating Option..." $optionName
-                    curl -X POST -s -k \
+                    curl -X GET -s -k \
                           --dump-header eem-api-header \
                           -H 'Accept: application/json' \
                           -H 'Content-Type: application/json' \
                           -H "Authorization: Bearer $(params.EEM_TOKEN)" \
-                          --data "$(cat templates/template-eem-option-$topic.json | jq ".eventSourceId |= ${eventSourceId}")" \
                           --output eem-response-data.json \
                           --write-out '%{response_code}' \
                           $EEM_API/eem/options
-                    asyncapiOptionId=$(jq -r .id eem-response-data.json)
-                else
-                    echo "Option does exist"  
-                    echo "AsyncAPIOptionID = " $asyncapiOptionId
-                fi
 
-                if [[ "$(params.EEM_APIC_INT)" == "true" ]]; then
-                    echo "Getting AsyncAPI for APIC..."
-                    curl -X GET -s -k \
-                        --dump-header eem-api-header \
-                        -H 'Accept: application/yaml' \
-                        -H 'Content-Type: application/json' \
-                        -H "Authorization: Bearer $(params.EEM_TOKEN)" \
-                        --output artifacts/$topic.yaml \
-                        --write-out '%{response_code}' \
-                        $EEM_API/eem/options/${asyncapiOptionId}/apicasyncapi
-                fi
+                    optionName=$(jq -r '.alias' templates/template-eem-option-$topic.json)    
+                    
+                    asyncapiOptionId=$(jq -r --arg optionName "$optionName" 'map(select(.alias==$optionName)) | .[] .id' eem-response-data.json)
+                    
+                    if [[ -z $asyncapiOptionId ]]; then
+                        echo "Option does NOT exist"
+                        echo "Creating Option..." $optionName
+                        curl -X POST -s -k \
+                              --dump-header eem-api-header \
+                              -H 'Accept: application/json' \
+                              -H 'Content-Type: application/json' \
+                              -H "Authorization: Bearer $(params.EEM_TOKEN)" \
+                              --data "$(cat templates/template-eem-option-$topic.json | jq ".eventSourceId |= ${eventSourceId}")" \
+                              --output eem-response-data.json \
+                              --write-out '%{response_code}' \
+                              $EEM_API/eem/options
+                        asyncapiOptionId=$(jq -r .id eem-response-data.json)
+                    else
+                        echo "Option does exist"  
+                        echo "AsyncAPIOptionID = " $asyncapiOptionId
+                    fi
 
-            done
-            
+                    if [[ "$(params.EEM_APIC_INT)" == "true" ]]; then
+                        echo "Getting AsyncAPI for APIC..."
+                        curl -X GET -s -k \
+                            --dump-header eem-api-header \
+                            -H 'Accept: application/yaml' \
+                            -H 'Content-Type: application/json' \
+                            -H "Authorization: Bearer $(params.EEM_TOKEN)" \
+                            --output artifacts/$topic.yaml \
+                            --write-out '%{response_code}' \
+                            $EEM_API/eem/options/${asyncapiOptionId}/apicasyncapi
+                    fi
+
+                done
+            fi
+
             rm -f ca.crt
 
-            echo "Event Endpoint Manager is configured"
+            if [[ "${CLEAN_CONFIG}" == "true" ]]; then
+                echo "Event Endpoint Manager configuration has completed successfully."
+            else
+                echo "Event Endpoint Manager configuration has completed with errors. Check and try again."
+            fi
         - name: VERSION
           value: latest
       retries: 3
@@ -1023,6 +1427,9 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
         - input: "$(params.DEPLOY_EVENT_ENDPOINT_MANAGEMENT_DEMOS)"
           operator: in
           values: ["true"]
@@ -1038,17 +1445,17 @@ spec:
             set -o xtrace
 
             if [[ -z $(oc get deployment datapower-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]]; then 
-                echo "Skipping Extra DP instance deployment, Operator was not installed."
+                echo "Skipping Extra API Gateway instance deployment, Operator was not installed."
                 exit 0
             fi
 
             if [[ -z $(oc get deployment ibm-apiconnect -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]]; then 
-                echo "Skipping Extra DP instance deployment, Operator was not installed."
+                echo "Skipping Extra API Gateway instance deployment, Operator was not installed."
                 exit 0
             fi
 
             if [[ -z "$(oc get APIConnectCluster apim-demo -n $(params.CP4I_NAMESPACE) --no-headers --ignore-not-found)" ]]; then 
-                echo "Skipping Extra DP instance deployment, Instance was not deployed."
+                echo "Skipping Extra API Gateway instance deployment, Instance was not deployed."
                 exit 0
             fi
 
@@ -1087,7 +1494,7 @@ spec:
 
             STACK_HOST=$(oc get route "${APIC_INST_NAME}-gw-gateway" -n $(params.CP4I_NAMESPACE) -o jsonpath="{.spec.host}" | cut -d'.' -f2-)
 
-            ( echo "cat <<EOF" ; cat instances/$(params.CP4I_VERSION)/23-apic-api-gwy-instance.yaml ;) | \
+            ( echo "cat <<EOF" ; cat instances/$(tasks.check-cp4i-version.results.output)/23-apic-api-gwy-instance.yaml ;) | \
                 STACK_HOST=${STACK_HOST} \
                 sh > temp-apic-api-gwy-instance.yaml
 
@@ -1127,11 +1534,99 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
         - input: "$(params.DEPLOY_API_CONNECT_DEMOS)"
           operator: in
           values: ["true"]
       workspaces:
         - name: cp4i-ws
+    - name: dp-demo-instance-deployment
+      params:
+        - name: SCRIPT
+          value: >-
+            set -o xtrace
+
+            if [[ -z $(oc get deployment datapower-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]]; then 
+                echo "Skipping DP instance deployment, Operator was not installed."
+                exit 0
+            fi
+
+            cd workspace/cp4i-ws/cp4i-deployer-helper
+
+            echo "Deploying DP Gateway instance..."
+
+            echo "Creating DP Gateway configuration..."
+
+            oc apply -f resources/16a-dp-gw-webui-config.yaml -n $(params.DP_NAMESPACE)
+
+            echo "Creating DP Gateway admin secret..."
+
+            if [[ -z "$(oc get secret admin-secret -n $(params.DP_NAMESPACE) --no-headers --ignore-not-found)" ]]; then
+                oc -n $(params.DP_NAMESPACE) create secret generic admin-secret --from-literal=password=admin
+            else
+                echo "Secret already exists."
+            fi
+
+            echo "Creating DP Gateway instance..."
+
+            oc apply -f instances/$(tasks.check-cp4i-version.results.output)/24-dp-gwy-instance.yaml -n $(params.DP_NAMESPACE)
+
+            echo "Waiting for DP gateway instance to be ready..."
+
+            while ! oc wait --for=jsonpath='{.status.phase}'=Running
+            DataPowerService/dp-demo -n
+            $(params.DP_NAMESPACE) 2>/dev/null; do sleep 30; done
+
+            echo "Create service to expose DP Gateway ports..."
+
+            oc apply -f resources/16b-dp-gw-services.yaml -n $(params.DP_NAMESPACE)
+
+            echo "Preparing Route File for DP WebUI..."
+
+            STACK_HOST="apps.$(oc get dnses.config.openshift.io cluster -o jsonpath='{.spec.baseDomain}')"
+            
+            ( echo "cat <<EOF" ; cat templates/template-dp-gw-webui-route.yaml ;) | \
+                STACK_HOST=${STACK_HOST} \
+                sh > dp-webui-route.yaml
+
+            echo "Creating DP WebUI Route..."
+
+            oc apply -f dp-webui-route.yaml -n $(params.DP_NAMESPACE)
+
+            echo "Preparing Route File for DP HTTP User Traffic..."
+
+            ( echo "cat <<EOF" ; cat templates/template-dp-gw-http-route.yaml ;) | \
+                STACK_HOST=${STACK_HOST} \
+                sh > dp-http-route.yaml
+
+            echo "Creating DP HTTP Route..."
+
+            oc apply -f dp-http-route.yaml -n $(params.DP_NAMESPACE)
+
+            echo "DP Gateway instance has been deployed"
+        - name: VERSION
+          value: latest
+      retries: 3
+      runAfter:
+        - apic-deploy-extra-gw
+      taskRef:
+        kind: Task
+        name: jgr-task-0.2
+      timeout: 3h0m0s  
+      when:
+        - input: "$(tasks.setup-workspace.results.output)"
+          operator: in
+          values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
+        - input: "$(params.DEPLOY_DATAPOWER_DEMOS)"
+          operator: in
+          values: ["true"]
+      workspaces:
+        - name: cp4i-ws  
     - name: qmgr-demo-instance-deployment
       params:
         - name: SCRIPT
@@ -1183,12 +1678,36 @@ spec:
 
             oc apply -f resources/03e-qmgr-mqsc-config-ea.yaml -n $(params.CP4I_NAMESPACE)
 
+            oc apply -f resources/03g-qmgr-ini-config.yaml -n $(params.CP4I_NAMESPACE)
+
             echo "Config maps are created"
 
             echo "Preparing queue manager instance manifest"
 
-            (echo "cat <<EOF" ; cat instances/$(params.CP4I_VERSION)/09-qmgr-ace-single-instance.yaml ;) | \
-                MQ_VERSION=$(params.MQ_VERSION) \
+            case "$(tasks.check-cp4i-version.results.output)" in
+
+                "16.1.0")
+            
+                    MQ_VERSION='9.4.0.12-r1'
+            
+                    ;;
+            
+                "16.1.1")
+            
+                    MQ_VERSION='9.4.2.1-r2'
+
+                    ;;
+
+                "CD")
+                    
+                    MQ_VERSION='9.4.3.0-r2'
+                    
+                    ;;
+            
+            esac
+
+            (echo "cat <<EOF" ; cat instances/$(tasks.check-cp4i-version.results.output)/09-qmgr-ace-single-instance.yaml ;) | \
+                MQ_VERSION=${MQ_VERSION} \
                 OCP_BLOCK_STORAGE=$(params.OCP_BLOCK_STORAGE) \
                 sh > qmgr-ace-single-instance.yaml
 
@@ -1207,7 +1726,7 @@ spec:
         - name: VERSION
           value: latest
       runAfter:
-        - apic-deploy-extra-gw
+        - dp-demo-instance-deployment
       taskRef:
         kind: Task
         name: jgr-task-0.2
@@ -1215,6 +1734,9 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
         - input: "$(params.DEPLOY_MQ_DEMOS)"
           operator: in
           values: ["true"]
@@ -1291,9 +1813,150 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
+        - input: "$(tasks.setup-image-registry.results.output)"
+          operator: in
+          values: ["true"]
         - input: "$(params.DEPLOY_EVENT_STREAMS_DEMOS)"
           operator: in
           values: ["true"]
+        - input: "$(params.DEPLOY_MQ_DEMOS)"
+          operator: in
+          values: ["true"]
+      workspaces:
+        - name: cp4i-ws
+    - name: mq-native-ha-instance-deployment
+      params:
+        - name: SCRIPT
+          value: >-
+            set -o xtrace
+
+            if [[ -z $(oc get deployment ibm-mq-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]]; then 
+                echo "Skipping Queue Managers with CRR configuration deployment, Operator was not installed."
+                exit 0
+            fi
+
+            cd workspace/cp4i-ws/cp4i-deployer-helper
+
+            echo "Preconfiguring Queue Managers for Native HA..."
+
+            QMGR_NAME='qmgr-native-ha'
+
+            QMGR_CHANNEL="MTLS.SVRCONN"
+
+            oc apply -f resources/03j-qmgr-mqsc-ini-config-nha.yaml -n $(params.MQ_NAMESPACE)
+
+            echo "Creating QMgr CA..."
+    
+            oc apply -f resources/03h-qmgr-ss-issuer.yaml -n $(params.MQ_NAMESPACE)
+
+            ( echo "cat <<EOF" ; cat templates/template-mq-nha-ca-cert.yaml ;) | \
+                QMGR_NAME=${QMGR_NAME} \
+                sh > qmgr-ca-cert.yaml
+
+            oc apply -f qmgr-ca-cert.yaml -n $(params.MQ_NAMESPACE)
+    
+            ( echo "cat <<EOF" ; cat templates/template-mq-nha-ca-issuer.yaml ;) | \
+                QMGR_NAME=${QMGR_NAME} \
+                sh > qmgr-ca-issuer.yaml
+    
+            oc apply -f qmgr-ca-issuer.yaml -n $(params.MQ_NAMESPACE)
+    
+            echo "Creating Certificate Template..."
+    
+            OCP_CLUSTER_DOMAIN=$(oc get IngressController default -n openshift-ingress-operator -o jsonpath='{.status.domain}')
+        
+            ( echo "cat <<EOF" ; cat templates/template-mq-nha-certificate.yaml ;) | \
+                QMGR_NAME=${QMGR_NAME} \
+                QMGR_NAMESPACE=$(params.MQ_NAMESPACE) \
+                OCP_CLUSTER_DOMAIN=${OCP_CLUSTER_DOMAIN} \
+                sh > mq-certificate.yaml
+        
+            echo "Creating Certificate..."
+        
+            oc apply -f mq-certificate.yaml -n $(params.MQ_NAMESPACE)
+
+            while ! oc wait --for=jsonpath='{.status.conditions[0].type}'=Ready
+            certificate/${QMGR_NAME}-selfsigned-cert -n
+            $(params.MQ_NAMESPACE) 2>/dev/null; do sleep 10; done
+
+            echo "Preparing Route Template..."
+
+            MQ_CHANNEL_SNI=$(echo $QMGR_CHANNEL | tr '[:upper:]' '[:lower:]')
+
+            HOST_NAME="${MQ_CHANNEL_SNI//./2e-}${DC}.chl.mq.ibm.com"
+
+            ( echo "cat <<EOF" ; cat templates/template-mq-tls-route.yaml ;) | \
+                QMGR_NAME=${QMGR_NAME} \
+                QMGR_NAMESPACE=$(params.MQ_NAMESPACE) \
+                HOST_NAME=${HOST_NAME} \
+                sh > mq-tls-route.yaml
+
+            echo "Creating Route..."
+
+            oc create -f mq-tls-route.yaml
+    
+            echo "Queue Manager preconfiguration for Native HA completed."
+
+            echo "Deploying Queue Manager with Native HA configuration..."
+
+            echo "Setting MQ Version"
+
+            case "$(tasks.check-cp4i-version.results.output)" in
+    
+                "16.1.0")
+              
+                    MQ_VERSION='9.4.0.12-r1'
+        
+                    ;;
+
+                "16.1.1")
+            
+                    MQ_VERSION='9.4.2.1-r2'
+
+                    ;;
+
+                "CD")
+                    
+                    MQ_VERSION='9.4.3.0-r2'
+                    
+                    ;;
+            
+            esac            
+            
+            echo "Preparing queue manager instance manifest"
+
+            (echo "cat <<EOF" ; cat instances/$(tasks.check-cp4i-version.results.output)/12-qmgr-native-ha-instance.yaml ;) | \
+                MQ_VERSION=${MQ_VERSION} \
+                OCP_BLOCK_STORAGE=$(params.OCP_BLOCK_STORAGE) \
+                sh > 12-qmgr-native-ha-instance.yaml
+
+            echo "Deploying queue manager instance"
+
+            oc apply -f 12-qmgr-native-ha-instance.yaml -n $(params.MQ_NAMESPACE)
+
+
+            while ! oc wait --for=jsonpath='{.status.phase}'=Running
+            queuemanager/${QMGR_NAME} -n
+            $(params.MQ_NAMESPACE)  2>/dev/null; do sleep 30; done
+
+            echo "Queue manager instance is ready"
+        - name: VERSION
+          value: latest
+      runAfter:
+        - mq-kafka-connectors-deployment
+      taskRef:
+        kind: Task
+        name: jgr-task-0.2
+      when:
+        - input: "$(tasks.setup-workspace.results.output)"
+          operator: in
+          values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
         - input: "$(params.DEPLOY_MQ_DEMOS)"
           operator: in
           values: ["true"]
@@ -1306,7 +1969,7 @@ spec:
             set -o xtrace
 
             if [[ -z $(oc get deployment ibm-mq-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]]; then 
-                echo "Skipping MQ Kafka Connectors deployment, Operator was not installed."
+                echo "Skipping MQ Uniform Cluster deployment, Operator was not installed."
                 exit 0
             fi
 
@@ -1364,11 +2027,33 @@ spec:
 
             QMGR_NAME_MQ='QM1'
 
-            (echo "cat <<EOF" ; cat instances/$(params.CP4I_VERSION)/13-qmgr-uniform-cluster-instance.yaml ;) | \
+            case "$(tasks.check-cp4i-version.results.output)" in
+
+                "16.1.0")
+            
+                    MQ_VERSION='9.4.0.12-r1'
+            
+                    ;;
+            
+                "16.1.1")
+            
+                    MQ_VERSION='9.4.2.1-r2'
+
+                    ;;
+
+                "CD")
+                    
+                    MQ_VERSION='9.4.3.0-r2'
+                    
+                    ;;
+            
+            esac
+
+            (echo "cat <<EOF" ; cat instances/$(tasks.check-cp4i-version.results.output)/13-qmgr-uniform-cluster-instance.yaml ;) | \
                 QMGR_NAME=${QMGR_NAME} \
                 QMGR_NAME_SHORT=${QMGR_NAME_SHORT} \
                 QMGR_NAME_MQ=${QMGR_NAME_MQ} \
-                MQ_VERSION=$(params.MQ_VERSION) \
+                MQ_VERSION=${MQ_VERSION} \
                 OCP_BLOCK_STORAGE=$(params.OCP_BLOCK_STORAGE) \
                 sh > qmgr-uniform-cluster-qm1.yaml
 
@@ -1395,11 +2080,12 @@ spec:
 
             QMGR_NAME_MQ='QM2'
 
-            (echo "cat <<EOF" ; cat instances/$(params.CP4I_VERSION)/13-qmgr-uniform-cluster-instance.yaml ;) | \
+
+            (echo "cat <<EOF" ; cat instances/$(tasks.check-cp4i-version.results.output)/13-qmgr-uniform-cluster-instance.yaml ;) | \
                 QMGR_NAME=${QMGR_NAME} \
                 QMGR_NAME_SHORT=${QMGR_NAME_SHORT} \
                 QMGR_NAME_MQ=${QMGR_NAME_MQ} \
-                MQ_VERSION=$(params.MQ_VERSION) \
+                MQ_VERSION=${MQ_VERSION} \
                 OCP_BLOCK_STORAGE=$(params.OCP_BLOCK_STORAGE) \
                 sh > qmgr-uniform-cluster-qm2.yaml
 
@@ -1431,7 +2117,7 @@ spec:
         - name: VERSION
           value: latest
       runAfter:
-        - mq-kafka-connectors-deployment
+        - mq-native-ha-instance-deployment
       taskRef:
         kind: Task
         name: jgr-task-0.2
@@ -1439,6 +2125,439 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
+        - input: "$(params.DEPLOY_MQ_DEMOS)"
+          operator: in
+          values: ["true"]
+      workspaces:
+        - name: cp4i-ws
+    - name: mq-base-instance-deployment
+      params:
+        - name: SCRIPT
+          value: >-
+            set -o xtrace
+
+            if [[ -z $(oc get deployment ibm-mq-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]]; then 
+                echo "Skipping Extra Queue Managers deployment, Operator was not installed."
+                exit 0
+            fi
+
+            cd workspace/cp4i-ws/cp4i-deployer-helper
+
+            echo "Deploying MQ Base Single Instace..."
+
+            echo "Setting MQ Version"
+
+            case "$(tasks.check-cp4i-version.results.output)" in
+
+                "16.1.0")
+            
+                    MQ_VERSION='9.4.0.12-r1'
+            
+                    ;;
+            
+                "16.1.1")
+            
+                    MQ_VERSION='9.4.2.1-r2'
+
+                    ;;
+
+                "CD")
+                    
+                    MQ_VERSION='9.4.3.0-r2'
+                    
+                    ;;
+            
+            esac
+
+            echo "Preparing queue manager instance manifest"
+            
+            (echo "cat <<EOF" ; cat instances/$(tasks.check-cp4i-version.results.output)/10-qmgr-base-single-instance.yaml ;) | \
+                MQ_VERSION=${MQ_VERSION} \
+                OCP_BLOCK_STORAGE=$(params.OCP_BLOCK_STORAGE) \
+                sh > qmgr-base-single-instance.yaml
+
+            echo "Deploying queue manager instance"
+
+            oc apply -f qmgr-base-single-instance.yaml -n
+            $(params.MQ_NAMESPACE)
+
+            echo "Waiting for queue manager instance to be ready..."
+
+            while ! oc wait --for=jsonpath='{.status.phase}'=Running
+            queuemanager/qmgr-base -n
+            $(params.MQ_NAMESPACE)  2>/dev/null; do sleep 30; done
+
+            echo "Queue manager instance is ready"
+        - name: VERSION
+          value: latest
+      runAfter:
+        - mq-uniform-cluster-deployment
+      taskRef:
+        kind: Task
+        name: jgr-task-0.2
+      when:
+        - input: "$(tasks.setup-workspace.results.output)"
+          operator: in
+          values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
+        - input: "$(params.DEPLOY_MQ_DEMOS)"
+          operator: in
+          values: ["true"]
+      workspaces:
+        - name: cp4i-ws
+    - name: mq-base-multi-instance-deployment
+      params:
+        - name: SCRIPT
+          value: >-
+            set -o xtrace
+
+            if [[ -z $(oc get deployment ibm-mq-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]]; then 
+                echo "Skipping Extra Queue Managers deployment, Operator was not installed."
+                exit 0
+            fi
+
+            cd workspace/cp4i-ws/cp4i-deployer-helper
+
+            echo "Deploying MQ Base Multi Instace..."
+
+            echo "Setting MQ Version"
+
+            case "$(tasks.check-cp4i-version.results.output)" in
+
+                "16.1.0")
+            
+                    MQ_VERSION='9.4.0.12-r1'
+            
+                    ;;
+            
+                "16.1.1")
+            
+                    MQ_VERSION='9.4.2.1-r2'
+
+                    ;;
+
+                "CD")
+                    
+                    MQ_VERSION='9.4.3.0-r2'
+                    
+                    ;;
+            
+            esac
+
+            echo "Preparing queue manager instance manifest"
+            
+            (echo "cat <<EOF" ; cat instances/$(tasks.check-cp4i-version.results.output)/11a-qmgr-base-multi-instance-storage.yaml ;) | \
+                MQ_VERSION=${MQ_VERSION} \
+                OCP_BLOCK_STORAGE=$(params.OCP_BLOCK_STORAGE) \
+                OCP_FILE_STORAGE=$(params.OCP_FILE_STORAGE) \
+                sh > qmgr-base-multi-instance-storage.yaml
+
+            echo "Deploying queue manager instance"
+
+            oc apply -f qmgr-base-multi-instance-storage.yaml -n
+            $(params.MQ_NAMESPACE)
+
+            echo "Waiting for queue manager instance to be ready..."
+
+            while ! oc wait --for=jsonpath='{.status.phase}'=Running
+            queuemanager/qmgr-base-multi-inst -n
+            $(params.MQ_NAMESPACE)  2>/dev/null; do sleep 30; done
+
+            echo "Queue manager instance is ready"
+        - name: VERSION
+          value: latest
+      runAfter:
+        - mq-base-instance-deployment
+      taskRef:
+        kind: Task
+        name: jgr-task-0.2
+      when:
+        - input: "$(tasks.setup-workspace.results.output)"
+          operator: in
+          values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
+        - input: "$(params.DEPLOY_MQ_DEMOS)"
+          operator: in
+          values: ["true"]
+      workspaces:
+        - name: cp4i-ws
+    - name: mq-bake-image-instance-deployment
+      params:
+        - name: SCRIPT
+          value: >-
+            set -o xtrace
+
+            if [[ -z $(oc get deployment ibm-mq-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]]; then 
+                echo "Skipping Extra Queue Managers deployment, Operator was not installed."
+                exit 0
+            fi
+
+            cd workspace/cp4i-ws/cp4i-deployer-helper
+
+            echo "Deploying Queue Manager with bake image..."
+
+            echo "Setting MQ Version"
+
+            case "$(tasks.check-cp4i-version.results.output)" in
+
+                "16.1.0")
+            
+                    MQ_VERSION='9.4.0.12-r1'
+            
+                    ;;
+            
+                "16.1.1")
+            
+                    MQ_VERSION='9.4.2.1-r2'
+
+                    ;;
+
+                "CD")
+                    
+                    MQ_VERSION='9.4.3.0-r2'
+                    
+                    ;;
+            
+            esac
+
+            echo "Preparing queue manager instance manifest"
+            
+            (echo "cat <<EOF" ; cat instances/$(tasks.check-cp4i-version.results.output)/14-qmgr-bake-image-instance.yaml ;) | \
+                MQ_VERSION=${MQ_VERSION} \
+                OCP_BLOCK_STORAGE=$(params.OCP_BLOCK_STORAGE) \
+                sh > qmgr-bake-image-instance.yaml
+
+            echo "Deploying queue manager instance"
+
+            oc apply -f qmgr-bake-image-instance.yaml -n
+            $(params.MQ_NAMESPACE)
+
+            echo "Waiting for queue manager instance to be ready..."
+
+            while ! oc wait --for=jsonpath='{.status.phase}'=Running
+            queuemanager/qmgr-bake-image -n
+            $(params.MQ_NAMESPACE)  2>/dev/null; do sleep 30; done
+
+            echo "Queue manager instance is ready"
+        - name: VERSION
+          value: latest
+      runAfter:
+        - mq-base-multi-instance-deployment
+      taskRef:
+        kind: Task
+        name: jgr-task-0.2
+      when:
+        - input: "$(tasks.setup-workspace.results.output)"
+          operator: in
+          values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
+        - input: "$(params.DEPLOY_MQ_DEMOS)"
+          operator: in
+          values: ["true"]
+      workspaces:
+        - name: cp4i-ws
+    - name: mq-nha-crr-instance-deployment
+      params:
+        - name: SCRIPT
+          value: >-
+            set -o xtrace
+
+            if [[ -z $(oc get deployment ibm-mq-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]]; then 
+                echo "Skipping Queue Managers with CRR configuration deployment, Operator was not installed."
+                exit 0
+            fi
+
+            cd workspace/cp4i-ws/cp4i-deployer-helper
+
+            echo "Preconfiguring Queue Managers for CRR..."
+
+            OCP_CLUSTER_DOMAIN=$(oc get IngressController default -n openshift-ingress-operator -o jsonpath='{.status.domain}')
+
+            QMGR_DCS=($(params.MQ_NHACRR_DC1) $(params.MQ_NHACRR_DC2))
+            
+            QMGR_CHANNEL="MTLS.SVRCONN."
+
+            for DC in "${QMGR_DCS[@]}"
+            
+            do
+
+                echo "Creating QMgr CA..."
+    
+                oc apply -f resources/03h-qmgr-ss-issuer.yaml -n $DC
+
+                ( echo "cat <<EOF" ; cat templates/template-mq-crr-ca-cert.yaml ;) | \
+                    QMGR_LOCATION=${DC} \
+                    sh > qmgr-ca-cert.yaml
+
+                oc apply -f qmgr-ca-cert.yaml -n $DC
+    
+                ( echo "cat <<EOF" ; cat templates/template-mq-crr-ca-issuer.yaml ;) | \
+                    QMGR_LOCATION=${DC} \
+                    sh > qmgr-ca-issuer.yaml
+    
+                oc apply -f qmgr-ca-issuer.yaml -n $DC
+    
+                echo "Cleaning up temp file..."
+    
+                rm -f qmgr-ca-cert.yaml
+    
+                rm -f qmgr-ca-issuer.yaml
+    
+                CERT_TEMPLATES=(ext int app)
+    
+                echo "Creating Certificate Template..."
+    
+                for CT in "${CERT_TEMPLATES[@]}"
+    
+                do
+        
+                    ( echo "cat <<EOF" ; cat templates/template-mq-crr-cert-$CT.yaml ;) | \
+                        QMGR_LOCATION=${DC} \
+                        OCP_CLUSTER_DOMAIN=${OCP_CLUSTER_DOMAIN} \
+                        sh > mq-certificate.yaml
+        
+                    echo "Creating Certificate..."
+        
+                    oc apply -f mq-certificate.yaml -n $DC
+        
+                    echo "Cleaning up temp file..."
+        
+                    rm -f mq-certificate.yaml
+                
+                done
+
+                echo "Preparing Route Template..."
+
+                MQ_CHANNEL_SNI=$(echo $QMGR_CHANNEL | tr '[:upper:]' '[:lower:]')
+
+                HOST_NAME="${MQ_CHANNEL_SNI//./2e-}${DC}.chl.mq.ibm.com"
+
+                ( echo "cat <<EOF" ; cat templates/template-mq-tls-route.yaml ;) | \
+                    QMGR_NAME=${QMGR_NAME} \
+                    QMGR_NAMESPACE=${DC} \
+                    HOST_NAME=${HOST_NAME} \
+                    sh > mq-tls-route.yaml
+
+                echo "Creating Route..."
+
+                oc create -f mq-tls-route.yaml
+    
+                echo "Cleaning up temp file..."
+    
+                rm -f mq-tls-route.yaml                
+
+            done
+
+            echo "Copy External Certificates..."
+
+            while ! oc wait --for=jsonpath='{.status.conditions[0].type}'=Ready 
+            certificate/nhacrr-$(params.MQ_NHACRR_DC1)-ext -n 
+            $(params.MQ_NHACRR_DC1) 2>/dev/null; do sleep 30; done
+
+            oc get secret nhacrr-$(params.MQ_NHACRR_DC1)-ext-tls -n $(params.MQ_NHACRR_DC1) -o yaml > nhacrr-$(params.MQ_NHACRR_DC1)-ext-tls.yaml
+
+            yq -i 'del(.metadata.creationTimestamp, .metadata.namespace, .metadata.resourceVersion, .metadata.uid)' \
+                nhacrr-$(params.MQ_NHACRR_DC1)-ext-tls.yaml
+
+            oc apply -f nhacrr-$(params.MQ_NHACRR_DC1)-ext-tls.yaml -n $(params.MQ_NHACRR_DC2)
+
+            while ! oc wait --for=jsonpath='{.status.conditions[0].type}'=Ready 
+            certificate/nhacrr-$(params.MQ_NHACRR_DC2)-ext -n 
+            $(params.MQ_NHACRR_DC2) 2>/dev/null; do sleep 30; done
+
+            oc get secret nhacrr-$(params.MQ_NHACRR_DC2)-ext-tls -n $(params.MQ_NHACRR_DC2) -o yaml > nhacrr-$(params.MQ_NHACRR_DC2)-ext-tls.yaml
+
+            yq -i 'del(.metadata.creationTimestamp, .metadata.namespace, .metadata.resourceVersion, .metadata.uid)' \
+                nhacrr-$(params.MQ_NHACRR_DC2)-ext-tls.yaml
+
+            oc apply -f nhacrr-$(params.MQ_NHACRR_DC2)-ext-tls.yaml -n $(params.MQ_NHACRR_DC1)
+
+            echo "Create Configuration for Queue Manager..."
+
+            oc apply -f resources/03i-qmgr-mqsc-ini-config-crr.yaml -n $(params.MQ_NHACRR_DC1)
+
+            oc apply -f resources/03i-qmgr-mqsc-ini-config-crr.yaml -n $(params.MQ_NHACRR_DC2)
+
+            echo "Queue Managers preconfiguration for CRR completed."
+
+            echo "Deploying Queue Manager with CRR configuration..."
+
+            echo "Setting MQ Version"
+
+            case "$(tasks.check-cp4i-version.results.output)" in
+
+                "16.1.1")
+            
+                    MQ_VERSION='9.4.2.1-r2'
+
+                    ;;
+
+                "CD")
+                    
+                    MQ_VERSION='9.4.3.0-r2'
+                    
+                    ;;
+            
+            esac            
+            
+            echo "Preparing queue manager instance manifest"
+
+            ( echo "cat <<EOF" ; cat instances/$(tasks.check-cp4i-version.results.output)/32a-qmgr-nha-crr-instance.yaml ;) | \
+                OCP_CLUSTER_DOMAIN=${OCP_CLUSTER_DOMAIN} \
+                MQ_VERSION=${MQ_VERSION} \
+                sh > 32-qmgr-nha-crr-instance.yaml
+
+            echo "Deploying queue manager instance"
+
+            oc apply -f 32-qmgr-nha-crr-instance.yaml -n $(params.MQ_NHACRR_DC1)
+
+            echo "Cleaning up temp file..."
+
+            rm -f 32-qmgr-nha-crr-instance.yaml
+
+            ( echo "cat <<EOF" ; cat instances/$(tasks.check-cp4i-version.results.output)/32b-qmgr-nha-crr-instance.yaml ;) | \
+                OCP_CLUSTER_DOMAIN=${OCP_CLUSTER_DOMAIN} \
+                MQ_VERSION=${MQ_VERSION} \
+                sh > 32-qmgr-nha-crr-instance.yaml
+
+            echo "Deploying Queue Manager instance..."
+
+            oc apply -f 32-qmgr-nha-crr-instance.yaml -n $(params.MQ_NHACRR_DC2)
+            
+            echo "Waiting for queue manager instance to be ready..."
+
+            while ! oc wait --for=jsonpath='{.status.phase}'=Running
+            queuemanager/exampleqm -n
+            $(params.MQ_NHACRR_DC1)  2>/dev/null; do sleep 30; done
+
+            while ! oc wait --for=jsonpath='{.status.phase}'=Running
+            queuemanager/exampleqm -n
+            $(params.MQ_NHACRR_DC2)  2>/dev/null; do sleep 30; done
+
+            echo "Queue manager instance is ready"
+        - name: VERSION
+          value: latest
+      runAfter:
+        - mq-bake-image-instance-deployment
+      taskRef:
+        kind: Task
+        name: jgr-task-0.2
+      when:
+        - input: "$(tasks.setup-workspace.results.output)"
+          operator: in
+          values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.1", "CD"]
         - input: "$(params.DEPLOY_MQ_DEMOS)"
           operator: in
           values: ["true"]
@@ -1488,7 +2607,7 @@ spec:
         - name: VERSION
           value: latest
       runAfter:
-        - mq-uniform-cluster-deployment
+        - mq-nha-crr-instance-deployment
       taskRef:
         kind: Task
         name: jgr-task-0.2
@@ -1496,6 +2615,9 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
         - input: "$(params.DEPLOY_ACE_DEMOS)"
           operator: in
           values: ["true"]
@@ -1514,18 +2636,32 @@ spec:
 
             cd workspace/cp4i-ws/cp4i-deployer-helper
 
-            oc apply -f instances/$(params.CP4I_VERSION)/18a-ace-is-aceivt-instance-fry.yaml -n
+            oc apply -f instances/$(tasks.check-cp4i-version.results.output)/18a-ace-is-aceivt-instance-fry.yaml -n
             $(params.ACE_NAMESPACE)
 
             echo "Waiting for Integration Server to be deployed..."
 
-            while ! oc wait --for=jsonpath='{.status.phase}'=Ready
+            case "$(tasks.check-cp4i-version.results.output)" in
+
+                "16.1.0")
+            
+                    IR_STATUS_PHASE='Ready'
+            
+                    ;;
+            
+                "16.1.1" | "CD")
+            
+                    IR_STATUS_PHASE='Stopped'
+            
+            esac
+
+            while ! oc wait --for=jsonpath='{.status.phase}'="$IR_STATUS_PHASE"
             integrationruntimes/jgr-ace-fry-cp4i-latest -n
             $(params.ACE_NAMESPACE)  2>/dev/null; do sleep 30; done
 
             echo "Integration Server is deployed"
 
-            oc apply -f instances/$(params.CP4I_VERSION)/18b-ace-is-aceivt-instance-fry.yaml -n
+            oc apply -f instances/$(tasks.check-cp4i-version.results.output)/18b-ace-is-aceivt-instance-fry.yaml -n
             $(params.ACE_NAMESPACE)
 
             echo "Waiting for Integration Server to be deployed..."
@@ -1546,6 +2682,9 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
         - input: "$(params.DEPLOY_ACE_DEMOS)"
           operator: in
           values: ["true"]
@@ -1573,71 +2712,52 @@ spec:
 
             if [[ ! -z "$(oc get configuration ${CONFIG_NAME} -n $(params.ACE_NAMESPACE) --no-headers --ignore-not-found)"  ]]; then
                 echo "Skipping ACE Configuration deployment, ${CONFIG_NAME} already exists."
-                exit 0
+            else
+                CONFIG_TYPE="policyproject"                 
+                CONFIG_DESCRIPTION="Policy to connect to Demo Queue Manager"
+                echo "Packaging Policy..."
+                mkdir CP4iQMGRDEMO && cp -a ../cp4i-ace-artifacts/CP4iQMGRDEMO/. CP4iQMGRDEMO/
+                QMGR_NAME='QMGRDEMO'
+                QMGR_HOST_NAME='qmgr-demo-ibm-mq.'$(params.CP4I_NAMESPACE)'.svc'                
+                ( echo "cat <<EOF" ; cat CP4iQMGRDEMO/QMGRDEMO.policyxml ;) | \
+                    QMGR_NAME=${QMGR_NAME} \
+                    QMGR_HOST_NAME=${QMGR_HOST_NAME} \
+                    sh > QMGRDEMO.policyxml                
+                mv -f QMGRDEMO.policyxml CP4iQMGRDEMO/QMGRDEMO.policyxml
+                zip -r CP4iQMGRDEMO.zip CP4iQMGRDEMO
+                CONFIG_CONTENT_BASE64=$(base64 -w 0 -i CP4iQMGRDEMO.zip)
+                ( echo "cat <<EOF" ; cat templates/template-ace-config-content.yaml ;) | \
+                    CONFIG_NAME=${CONFIG_NAME} \
+                    CONFIG_TYPE=${CONFIG_TYPE} \
+                    CONFIG_NS=$(params.ACE_NAMESPACE) \
+                    CONFIG_DESCRIPTION=${CONFIG_DESCRIPTION} \
+                    CONFIG_CONTENT_BASE64=${CONFIG_CONTENT_BASE64} \
+                    sh > ace-config-policy-mq.yaml
+                echo "Creating ACE Configuration..."                
+                oc apply -f ace-config-policy-mq.yaml
+                oc -n $(params.ACE_NAMESPACE) label configuration ace-qmgr-demo-policy assembly.integration.ibm.com/tools.jgr-demo=true
+                echo "MQ Policy Configuration is created"
             fi
-
-            CONFIG_TYPE="policyproject" 
-            
-            CONFIG_DESCRIPTION="Policy to connect to Demo Queue Manager"
-
-            echo "Packaging Policy..."
-
-            mkdir CP4iQMGRDEMO && cp -a ../cp4i-ace-artifacts/CP4iQMGRDEMO/. CP4iQMGRDEMO/
-
-            QMGR_HOST_NAME='qmgr-demo-ibm-mq.'$(params.CP4I_NAMESPACE)'.svc'
-            
-            ( echo "cat <<EOF" ; cat CP4iQMGRDEMO/QMGRDEMO.policyxml ;) | \
-                QMGR_HOST_NAME=${QMGR_HOST_NAME} \
-                sh > QMGRDEMO.policyxml
-            
-            mv -f QMGRDEMO.policyxml CP4iQMGRDEMO/QMGRDEMO.policyxml
-
-            zip -r CP4iQMGRDEMO.zip CP4iQMGRDEMO
-
-            CONFIG_CONTENT_BASE64=$(base64 -w 0 -i CP4iQMGRDEMO.zip)
-            
-            ( echo "cat <<EOF" ; cat templates/template-ace-config-content.yaml ;) | \
-                CONFIG_NAME=${CONFIG_NAME} \
-                CONFIG_TYPE=${CONFIG_TYPE} \
-                CONFIG_NS=$(params.ACE_NAMESPACE) \
-                CONFIG_DESCRIPTION=${CONFIG_DESCRIPTION} \
-                CONFIG_CONTENT_BASE64=${CONFIG_CONTENT_BASE64} \
-                sh > ace-config-policy-mq.yaml
-
-            echo "Creating ACE Configuration..."
-            
-            oc apply -f ace-config-policy-mq.yaml
-
-            oc -n $(params.ACE_NAMESPACE) label configuration ace-qmgr-demo-policy assembly.integration.ibm.com/tools.jgr-demo=true
-
-            echo "MQ Policy Configuration is created"
 
             CONFIG_NAME="jgr-default-qmgr"
 
             if [[ ! -z "$(oc get configuration ${CONFIG_NAME} -n $(params.ACE_NAMESPACE) --no-headers --ignore-not-found)"  ]]; then
                 echo "Skipping ACE Configuration deployment, ${CONFIG_NAME} already exists."
-                exit 0
+            else
+                CONFIG_TYPE="serverconf"                
+                CONFIG_DESCRIPTION="Default QMgr for ACH Flows"
+                CONFIG_DATA_BASE64=$(base64 -w 0 -i templates/template-ace-server-config-ach-hl7.yaml)
+                ( echo "cat <<EOF" ; cat templates/template-ace-config-data.yaml ;) | \
+                    CONFIG_NAME=${CONFIG_NAME} \
+                    CONFIG_TYPE=${CONFIG_TYPE} \
+                    CONFIG_NS=$(params.ACE_NAMESPACE) \
+                    CONFIG_DESCRIPTION=${CONFIG_DESCRIPTION} \
+                    CONFIG_DATA_BASE64=${CONFIG_DATA_BASE64} \
+                    sh > ace-config-server-conf.yaml
+                echo "Creating ACE Configuration..."
+                oc apply -f ace-config-server-conf.yaml
+                echo "Server Conf Configuration has been created."
             fi
-
-            CONFIG_TYPE="serverconf"
-            
-            CONFIG_DESCRIPTION="Default QMgr for ACH Flows"
-
-            CONFIG_DATA_BASE64=$(base64 -w 0 -i templates/template-ace-server-config-ach-hl7.yaml)
-
-            ( echo "cat <<EOF" ; cat templates/template-ace-config-data.yaml ;) | \
-                CONFIG_NAME=${CONFIG_NAME} \
-                CONFIG_TYPE=${CONFIG_TYPE} \
-                CONFIG_NS=$(params.ACE_NAMESPACE) \
-                CONFIG_DESCRIPTION=${CONFIG_DESCRIPTION} \
-                CONFIG_DATA_BASE64=${CONFIG_DATA_BASE64} \
-                sh > ace-config-server-conf.yaml
-
-            echo "Creating ACE Configuration..."
-
-            oc apply -f ace-config-server-conf.yaml
-
-            echo "Server Conf Configuration has been created."
         - name: VERSION
           value: latest
       runAfter:
@@ -1649,6 +2769,9 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
         - input: "$(params.DEPLOY_ACE_DEMOS)"
           operator: in
           values: ["true"]
@@ -1677,7 +2800,7 @@ spec:
 
             echo "Deploying Integration MQAPI PREM..."
             
-            oc apply -f instances/$(params.CP4I_VERSION)/10-ace-is-mqapi-prem-instance.yaml -n
+            oc apply -f instances/$(tasks.check-cp4i-version.results.output)/10-ace-is-mqapi-prem-instance.yaml -n
             $(params.ACE_NAMESPACE)
 
             echo "Waiting for Integration Server to be deployed..."
@@ -1688,7 +2811,7 @@ spec:
 
             echo "Integration Server is deployed"
 
-            oc apply -f instances/$(params.CP4I_VERSION)/11-ace-is-mqapi-dflt-instance.yaml -n
+            oc apply -f instances/$(tasks.check-cp4i-version.results.output)/11-ace-is-mqapi-dflt-instance.yaml -n
             $(params.ACE_NAMESPACE)
 
             echo "Waiting for Integration Server to be deployed..."
@@ -1709,6 +2832,9 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
         - input: "$(params.DEPLOY_ACE_DEMOS)"
           operator: in
           values: ["true"]
@@ -1758,6 +2884,7 @@ spec:
                     SF_CLIENT_SECRET=$(params.SF_CLIENT_SECRET) \
                     SF_LOGIN_URL=$(params.SF_LOGIN_URL) \
                     sh > ace-config-account-sf.yaml
+                echo "Preparing Base64 data for Configuration..."
                 CONFIG_DATA_BASE64=$(base64 -w 0 -i ace-config-account-sf.yaml)
                 echo "Prepare Configuration File"
                 ( echo "cat <<EOF" ; cat templates/template-ace-config-data.yaml ;) | \
@@ -1783,6 +2910,9 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
         - input: "$(params.DEPLOY_ACE_DEMOS)"
           operator: in
           values: ["true"]
@@ -1801,7 +2931,7 @@ spec:
 
             cd workspace/cp4i-ws/cp4i-deployer-helper
 
-            cp instances/$(params.CP4I_VERSION)/12b-ace-is-designer-sfleads-instance.yaml .
+            cp instances/$(tasks.check-cp4i-version.results.output)/12b-ace-is-designer-sfleads-instance.yaml .
 
             if [[ -z "$(params.SF_USER)" ]] ||
                [[ -z "$(params.SF_PWD)" ]] ||
@@ -1844,6 +2974,9 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
         - input: "$(params.DEPLOY_ACE_DEMOS)"
           operator: in
           values: ["true"]
@@ -1855,6 +2988,11 @@ spec:
           value: >-
             set -o xtrace
 
+            if [[ -z $(oc get deployment ibm-appconnect-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]]; then 
+                echo "Skipping ACE ES configuration deployment, Operator was not installed."
+                exit 0
+            fi
+
             if [[ -z $(oc get deployment eventstreams-cluster-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]]; then 
                 echo "Skipping ACE ES configuration deployment, Operator was not installed."
                 exit 0
@@ -1862,11 +3000,6 @@ spec:
 
             if [[ -z "$(oc get eventstreams es-demo -n $(params.ES_NAMESPACE) --no-headers --ignore-not-found)" ]]; then 
                 echo "Skipping ACE ES configuration deployment, Instance was not deployed."
-                exit 0
-            fi
-
-            if [[ -z $(oc get deployment ibm-appconnect-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]]; then 
-                echo "Skipping ACE ES configuration deployment, Operator was not installed."
                 exit 0
             fi
 
@@ -1878,62 +3011,37 @@ spec:
 
             if [[ ! -z "$(oc get configuration ${CONFIG_NAME} -n $(params.ACE_NAMESPACE) --no-headers --ignore-not-found)"  ]]; then
                 echo "Skipping ACE Configuration deployment, ${CONFIG_NAME} already exists."
-                exit 0
+            else
+                CONFIG_TYPE="policyproject"
+                CONFIG_DESCRIPTION="Policy to connect to Demo Event Streams Cluster"
+                echo "Packaging Policy..."
+                mkdir CP4IESDEMOSCRAM && cp -a ../cp4i-ace-artifacts/CP4IESDEMOSCRAM/. CP4IESDEMOSCRAM/
+                ES_BOOTSTRAP_SERVER=$(oc get eventstreams ${ES_INST_NAME} -n $(params.ES_NAMESPACE) -o=jsonpath='{range .status.kafkaListeners[*]}{.name} {.bootstrapServers}{"\n"}{end}' | awk '$1=="external" {print $2}')
+                ( echo "cat <<EOF" ; cat CP4IESDEMOSCRAM/es-demo.policyxml ;) | \
+                    ES_BOOTSTRAP_SERVER=${ES_BOOTSTRAP_SERVER} \
+                    sh > es-demo.policyxml
+                mv -f es-demo.policyxml CP4IESDEMOSCRAM/es-demo.policyxml                
+                zip -r CP4IESDEMOSCRAM.zip CP4IESDEMOSCRAM
+                CONFIG_CONTENT_BASE64=$(base64 -w 0 -i CP4IESDEMOSCRAM.zip)
+                ( echo "cat <<EOF" ; cat templates/template-ace-config-content.yaml ;) | \
+                    CONFIG_NAME=${CONFIG_NAME} \
+                    CONFIG_TYPE=${CONFIG_TYPE} \
+                    CONFIG_NS=$(params.ACE_NAMESPACE) \
+                    CONFIG_DESCRIPTION=${CONFIG_DESCRIPTION} \
+                    CONFIG_CONTENT_BASE64=${CONFIG_CONTENT_BASE64} \
+                    sh > ace-config-policy-es-scram.yaml
+                echo "Creating ACE Configuration..."
+                oc apply -f ace-config-policy-es-scram.yaml
+                oc -n $(params.ACE_NAMESPACE) label configuration ace-es-demo-scram-policy assembly.integration.ibm.com/tools.jgr-demo=true
+                echo "ES Policy Configuration is created"
             fi
-
-            CONFIG_TYPE="policyproject"
-
-            CONFIG_DESCRIPTION="Policy to connect to Demo Event Streams Cluster"
-
-            echo "Packaging Policy..."
-
-            mkdir CP4IESDEMOSCRAM && cp -a ../cp4i-ace-artifacts/CP4IESDEMOSCRAM/. CP4IESDEMOSCRAM/
-
-            ES_BOOTSTRAP_SERVER=$(oc get eventstreams ${ES_INST_NAME} -n $(params.ES_NAMESPACE) -o=jsonpath='{range .status.kafkaListeners[*]}{.name} {.bootstrapServers}{"\n"}{end}' | awk '$1=="external" {print $2}')
-
-            ( echo "cat <<EOF" ; cat CP4IESDEMOSCRAM/es-demo.policyxml ;) | \
-                ES_BOOTSTRAP_SERVER=${ES_BOOTSTRAP_SERVER} \
-                sh > es-demo.policyxml
-
-            mv -f es-demo.policyxml CP4IESDEMOSCRAM/es-demo.policyxml
-            
-            zip -r CP4IESDEMOSCRAM.zip CP4IESDEMOSCRAM
-
-            CONFIG_CONTENT_BASE64=$(base64 -w 0 -i CP4IESDEMOSCRAM.zip)
-            
-            ( echo "cat <<EOF" ; cat templates/template-ace-config-content.yaml ;) | \
-                CONFIG_NAME=${CONFIG_NAME} \
-                CONFIG_TYPE=${CONFIG_TYPE} \
-                CONFIG_NS=$(params.ACE_NAMESPACE) \
-                CONFIG_DESCRIPTION=${CONFIG_DESCRIPTION} \
-                CONFIG_CONTENT_BASE64=${CONFIG_CONTENT_BASE64} \
-                sh > ace-config-policy-es-scram.yaml
-            
-            echo "Creating ACE Configuration..."
-
-            oc apply -f ace-config-policy-es-scram.yaml
-
-            oc -n $(params.ACE_NAMESPACE) label configuration ace-es-demo-scram-policy assembly.integration.ibm.com/tools.jgr-demo=true
-            
-            echo "ES Policy Configuration is created"
 
             ES_USER_ID='ace-user'
-
-            CONFIG_NAME="ace-es-demo-scram-secid"
-
-            if [[ ! -z "$(oc get configuration ${CONFIG_NAME} -n $(params.ACE_NAMESPACE) --no-headers --ignore-not-found)"  ]]; then
-                echo "Skipping ACE Configuration deployment, ${CONFIG_NAME} already exists."
-                exit 0
-            fi
-
-            CONFIG_TYPE="setdbparms"
-
-            CONFIG_DESCRIPTION="Credentials to connect using SCRAM to ES Demo Cluster"
-
+            
             TRUSTSTORE_PWD=$(oc get secret ${ES_INST_NAME}-cluster-ca-cert -n $(params.ES_NAMESPACE) -o=jsonpath='{.data.ca\.password}' | base64 -d)
-
+            
             ES_USER_PWD=$(oc get secret ${ES_USER_ID} -n $(params.ES_NAMESPACE) -o=jsonpath='{.data.password}' | base64 -d)
-
+            
             cat <<EOF >ace-setdbparms-data-es-scram.txt
             
             truststore::truststorePass dummy $TRUSTSTORE_PWD
@@ -1942,58 +3050,50 @@ spec:
             
             EOF
 
-            CONFIG_DATA_BASE64=$(base64 -w 0 -i ace-setdbparms-data-es-scram.txt)
+            CONFIG_NAME="ace-es-demo-scram-secid"
 
-            ( echo "cat <<EOF" ; cat templates/template-ace-config-data.yaml ;) | \
-                CONFIG_NAME=${CONFIG_NAME} \
-                CONFIG_TYPE=${CONFIG_TYPE} \
-                CONFIG_NS=$(params.ACE_NAMESPACE) \
-                CONFIG_DESCRIPTION=${CONFIG_DESCRIPTION} \
-                CONFIG_DATA_BASE64=${CONFIG_DATA_BASE64} \
-                sh > ace-config-setdbparms-es-scram.yaml
-
-            echo "Creating ACE Configuration..."
-
-            oc apply -f ace-config-setdbparms-es-scram.yaml
-            
-            oc -n $(params.ACE_NAMESPACE) label configuration ace-es-demo-scram-secid assembly.integration.ibm.com/tools.jgr-demo=true
-
-            echo "SetDBParms Configuration for ES is created"
+            if [[ ! -z "$(oc get configuration ${CONFIG_NAME} -n $(params.ACE_NAMESPACE) --no-headers --ignore-not-found)"  ]]; then
+                echo "Skipping ACE Configuration deployment, ${CONFIG_NAME} already exists."
+            else
+                CONFIG_TYPE="setdbparms"
+                CONFIG_DESCRIPTION="Credentials to connect using SCRAM to ES Demo Cluster"
+                CONFIG_DATA_BASE64=$(base64 -w 0 -i ace-setdbparms-data-es-scram.txt)
+                ( echo "cat <<EOF" ; cat templates/template-ace-config-data.yaml ;) | \
+                    CONFIG_NAME=${CONFIG_NAME} \
+                    CONFIG_TYPE=${CONFIG_TYPE} \
+                    CONFIG_NS=$(params.ACE_NAMESPACE) \
+                    CONFIG_DESCRIPTION=${CONFIG_DESCRIPTION} \
+                    CONFIG_DATA_BASE64=${CONFIG_DATA_BASE64} \
+                    sh > ace-config-setdbparms-es-scram.yaml
+                echo "Creating ACE Configuration..."
+                oc apply -f ace-config-setdbparms-es-scram.yaml
+                oc -n $(params.ACE_NAMESPACE) label configuration ace-es-demo-scram-secid assembly.integration.ibm.com/tools.jgr-demo=true
+                echo "SetDBParms Configuration for ES is created"
+            fi
 
             CONFIG_NAME="es-cert.p12"
 
             if [[ ! -z "$(oc get configuration ${CONFIG_NAME} -n $(params.ACE_NAMESPACE) --no-headers --ignore-not-found)"  ]]; then
                 echo "Skipping ACE Configuration deployment, ${CONFIG_NAME} already exists."
-                exit 0
+            else
+                CONFIG_TYPE="truststore"    
+                CONFIG_DESCRIPTION="JKS certificate for Event Streams instance es-demo"
+                oc extract secret/${ES_INST_NAME}-cluster-ca-cert -n $(params.ES_NAMESPACE) --keys=ca.p12
+                mv ca.p12 es-cert.p12
+                CONFIG_DATA_BASE64=$(base64 -w 0 -i es-cert.p12)
+                ( echo "cat <<EOF" ; cat templates/template-ace-config-data.yaml ;) | \
+                    CONFIG_NAME=${CONFIG_NAME} \
+                    CONFIG_TYPE=${CONFIG_TYPE} \
+                    CONFIG_NS=$(params.ACE_NAMESPACE) \
+                    CONFIG_DESCRIPTION=${CONFIG_DESCRIPTION} \
+                    CONFIG_DATA_BASE64=${CONFIG_DATA_BASE64} \
+                    sh > ace-config-truststore.yaml
+                echo "Creating ACE Configuration..."
+                oc apply -f ace-config-truststore.yaml
+                oc -n $(params.ACE_NAMESPACE) label configuration es-cert.p12 assembly.integration.ibm.com/tools.jgr-demo=true
+                rm -f es-cert.p12
+                echo "TrustStore Configuration is created"
             fi
-
-            CONFIG_TYPE="truststore"
-            
-            CONFIG_DESCRIPTION="JKS certificate for Event Streams instance es-demo"
-
-            oc extract secret/${ES_INST_NAME}-cluster-ca-cert -n $(params.ES_NAMESPACE) --keys=ca.p12
-
-            mv ca.p12 es-cert.p12
-
-            CONFIG_DATA_BASE64=$(base64 -w 0 -i es-cert.p12)
-
-            ( echo "cat <<EOF" ; cat templates/template-ace-config-data.yaml ;) | \
-                CONFIG_NAME=${CONFIG_NAME} \
-                CONFIG_TYPE=${CONFIG_TYPE} \
-                CONFIG_NS=$(params.ACE_NAMESPACE) \
-                CONFIG_DESCRIPTION=${CONFIG_DESCRIPTION} \
-                CONFIG_DATA_BASE64=${CONFIG_DATA_BASE64} \
-                sh > ace-config-truststore.yaml
-            
-            echo "Creating ACE Configuration..."
-            
-            oc apply -f ace-config-truststore.yaml
-            
-            oc -n $(params.ACE_NAMESPACE) label configuration es-cert.p12 assembly.integration.ibm.com/tools.jgr-demo=true
-
-            rm -f es-cert.p12
-
-            echo "TrustStore Configuration is created"
         - name: VERSION
           value: latest
       runAfter:
@@ -2005,6 +3105,9 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
         - input: "$(params.DEPLOY_EVENT_STREAMS_DEMOS)"
           operator: in
           values: ["true"]
@@ -2038,7 +3141,7 @@ spec:
 
             echo "Deploying Integration MQFWD..."
             
-            oc apply -f instances/$(params.CP4I_VERSION)/13-ace-is-mqfwd-event-instance.yaml -n
+            oc apply -f instances/$(tasks.check-cp4i-version.results.output)/13-ace-is-mqfwd-event-instance.yaml -n
             $(params.ACE_NAMESPACE)
 
             echo "Waiting for Integration Server to be deployed..."
@@ -2051,7 +3154,7 @@ spec:
 
             echo "Deploying Integration MOCK..."
 
-            oc apply -f instances/$(params.CP4I_VERSION)/14-ace-is-mock-backend-instance.yaml -n
+            oc apply -f instances/$(tasks.check-cp4i-version.results.output)/14-ace-is-mock-backend-instance.yaml -n
             $(params.ACE_NAMESPACE)
 
             echo "Waiting for Integration Server to be deployed..."
@@ -2072,6 +3175,9 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
         - input: "$(params.DEPLOY_EVENT_STREAMS_DEMOS)"
           operator: in
           values: ["true"]
@@ -2136,6 +3242,9 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
         - input: "$(params.DEPLOY_ACE_DEMOS)"
           operator: in
           values: ["true"]
@@ -2158,73 +3267,58 @@ spec:
 
             if [[ ! -z "$(oc get configuration ${CONFIG_NAME} -n $(params.ACE_NAMESPACE) --no-headers --ignore-not-found)"  ]]; then
                 echo "Skipping ACE Configuration deployment, ${CONFIG_NAME} already exists."
-                exit 0
+            else
+                CONFIG_TYPE="policyproject"
+                CONFIG_DESCRIPTION="Policy to configure default values for CP4I Demo"
+                echo "Packaging Policy..."
+                mkdir CP4IEMAIL && cp -a ../cp4i-ace-artifacts/CP4IEMAIL/. CP4IEMAIL/
+                zip -r CP4IEMAIL.zip CP4IEMAIL
+                CONFIG_CONTENT_BASE64=$(base64 -w 0 -i CP4IEMAIL.zip)
+                ( echo "cat <<EOF" ; cat templates/template-ace-config-content.yaml ;) | \
+                    CONFIG_NAME=${CONFIG_NAME} \
+                    CONFIG_TYPE=${CONFIG_TYPE} \
+                    CONFIG_NS=$(params.ACE_NAMESPACE) \
+                    CONFIG_DESCRIPTION=${CONFIG_DESCRIPTION} \
+                    CONFIG_CONTENT_BASE64=${CONFIG_CONTENT_BASE64} \
+                    sh > ace-config-policy-email.yaml
+                echo "Creating ACE Configuration..."
+                oc apply -f ace-config-policy-email.yaml
+                oc -n $(params.ACE_NAMESPACE) label configuration ace-email-server-policy assembly.integration.ibm.com/tools.jgr-demo=true
+                echo "eMail Server Policy Configuration is created"
             fi
-
-            CONFIG_TYPE="policyproject"
-
-            CONFIG_DESCRIPTION="Policy to configure default values for CP4I Demo"
-            
-            echo "Packaging Policy..."
-            
-            mkdir CP4IEMAIL && cp -a ../cp4i-ace-artifacts/CP4IEMAIL/. CP4IEMAIL/
-            
-            zip -r CP4IEMAIL.zip CP4IEMAIL
-            
-            CONFIG_CONTENT_BASE64=$(base64 -w 0 -i CP4IEMAIL.zip)
-
-            ( echo "cat <<EOF" ; cat templates/template-ace-config-content.yaml ;) | \
-                CONFIG_NAME=${CONFIG_NAME} \
-                CONFIG_TYPE=${CONFIG_TYPE} \
-                CONFIG_NS=$(params.ACE_NAMESPACE) \
-                CONFIG_DESCRIPTION=${CONFIG_DESCRIPTION} \
-                CONFIG_CONTENT_BASE64=${CONFIG_CONTENT_BASE64} \
-                sh > ace-config-policy-email.yaml
-
-            echo "Creating ACE Configuration..."
-
-            oc apply -f ace-config-policy-email.yaml
-
-            oc -n $(params.ACE_NAMESPACE) label configuration ace-email-server-policy assembly.integration.ibm.com/tools.jgr-demo=true
-
-            echo "eMail Server Policy Configuration is created"
 
             echo "Building SetDBParms Configuration for eMail Server"
-
-            CONFIG_NAME="ace-email-server-secid"
-
-            if [[ ! -z "$(oc get configuration ${CONFIG_NAME} -n $(params.ACE_NAMESPACE) --no-headers --ignore-not-found)"  ]]; then
-                echo "Skipping ACE Configuration deployment, ${CONFIG_NAME} already exists."
-                exit 0
-            fi
-
-            CONFIG_TYPE="setdbparms"
             
-            CONFIG_DESCRIPTION="Credentials to connect to eMail Server MailTrap"
-
+            MAILTRAP_USER='mailpit-user'
+            
+            MAILTRAP_PWD=$(uuidgen | tr '[:upper:]' '[:lower:]' | tr -d '-')
+            
             cat <<EOF >ace-setdbparms-data-email.txt
             
-            smtp::mailtrapsecid $(params.MAILTRAP_USER) $(params.MAILTRAP_PWD)
+            smtp::mailtrapsecid $MAILTRAP_USER $MAILTRAP_PWD
             
             EOF
 
-            CONFIG_DATA_BASE64=$(base64 -w 0 -i ace-setdbparms-data-email.txt)
-
-            ( echo "cat <<EOF" ; cat templates/template-ace-config-data.yaml ;) | \
-                CONFIG_NAME=${CONFIG_NAME} \
-                CONFIG_TYPE=${CONFIG_TYPE} \
-                CONFIG_NS=$(params.ACE_NAMESPACE) \
-                CONFIG_DESCRIPTION=${CONFIG_DESCRIPTION} \
-                CONFIG_DATA_BASE64=${CONFIG_DATA_BASE64} \
-                sh > ace-config-setdbparms-email.yaml
-            
-            echo "Creating ACE Configuration..."
-            
-            oc apply -f ace-config-setdbparms-email.yaml
-            
-            oc -n $(params.ACE_NAMESPACE) label configuration ace-email-server-secid assembly.integration.ibm.com/tools.jgr-demo=true
-
-            echo "SetDBParms Configuration for eMail Server is created"
+            CONFIG_NAME="ace-email-server-secid"
+                        
+            if [[ ! -z "$(oc get configuration ${CONFIG_NAME} -n $(params.ACE_NAMESPACE) --no-headers --ignore-not-found)"  ]]; then
+                echo "Skipping ACE Configuration deployment, ${CONFIG_NAME} already exists."
+            else
+                CONFIG_TYPE="setdbparms"
+                CONFIG_DESCRIPTION="Credentials to connect to eMail Server MailTrap"
+                CONFIG_DATA_BASE64=$(base64 -w 0 -i ace-setdbparms-data-email.txt)
+                ( echo "cat <<EOF" ; cat templates/template-ace-config-data.yaml ;) | \
+                    CONFIG_NAME=${CONFIG_NAME} \
+                    CONFIG_TYPE=${CONFIG_TYPE} \
+                    CONFIG_NS=$(params.ACE_NAMESPACE) \
+                    CONFIG_DESCRIPTION=${CONFIG_DESCRIPTION} \
+                    CONFIG_DATA_BASE64=${CONFIG_DATA_BASE64} \
+                    sh > ace-config-setdbparms-email.yaml
+                echo "Creating ACE Configuration..."
+                oc apply -f ace-config-setdbparms-email.yaml
+                oc -n $(params.ACE_NAMESPACE) label configuration ace-email-server-secid assembly.integration.ibm.com/tools.jgr-demo=true
+                echo "SetDBParms Configuration for eMail Server is created"
+            fi
         - name: VERSION
           value: latest
       runAfter:
@@ -2236,15 +3330,12 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
         - input: "$(params.DEPLOY_ACE_DEMOS)"
           operator: in
           values: ["true"]
-        - input: "$(params.MAILTRAP_USER)"
-          operator: notin
-          values: [""]
-        - input: "$(params.MAILTRAP_PWD)"
-          operator: notin
-          values: [""]
       workspaces:
         - name: cp4i-ws
     - name: ace-ir-instance-email
@@ -2267,7 +3358,7 @@ spec:
 
             echo "Deploying Integration KafkaEmail..."
             
-            oc apply -f instances/$(params.CP4I_VERSION)/15a-ace-is-kafka-email-instance.yaml -n
+            oc apply -f instances/$(tasks.check-cp4i-version.results.output)/15a-ace-is-kafka-email-instance.yaml -n
             $(params.ACE_NAMESPACE)
 
             echo "Waiting for Integration Server to be deployed..."
@@ -2288,16 +3379,95 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
         - input: "$(params.DEPLOY_EVENT_STREAMS_DEMOS)"
           operator: in
           values: ["true"]
         - input: "$(params.DEPLOY_ACE_DEMOS)"
           operator: in
           values: ["true"]
-        - input: "$(params.MAILTRAP_USER)"
-          operator: notin
-          values: [""]
-        - input: "$(params.MAILTRAP_PWD)"
+      workspaces:
+        - name: cp4i-ws
+    - name: apic-validate-eem-gtwy-config
+      params:
+        - name: SCRIPT
+          value: >-
+            set -o xtrace
+
+            if [[ -z $(oc get deployment datapower-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]]; then 
+                echo "No validation needed, DP Operator was not installed."
+                exit 0
+            fi
+
+            if [[ -z $(oc get deployment ibm-apiconnect -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]]; then 
+                echo "No validation needed, APIC Operator was not installed."
+                exit 0
+            fi
+
+            if [[ -z "$(oc get APIConnectCluster apim-demo -n $(params.CP4I_NAMESPACE) --no-headers --ignore-not-found)" ]]; then 
+                echo "No validation needed, APIC Instance was not deployed."
+                exit 0
+            fi
+
+            cd workspace/cp4i-ws
+
+            echo "Checking Event Gateway configuration for EEM integration"
+
+            ./apic --accept-license --live-help=false
+
+            echo "Setting apic variables"
+
+            APIC_INST_NAME='apim-demo'
+
+            APIC_REALM='admin/default-idp-1'
+
+            APIC_ADMIN_USER='admin'
+
+            APIC_ADMIN_ORG='admin'
+
+            APIC_AVAILABILITY_ZONE='availability-zone-default'
+
+            APIC_MGMT_SERVER=$(oc get route "${APIC_INST_NAME}-mgmt-platform-api" -n $(params.CP4I_NAMESPACE) -o jsonpath="{.spec.host}")
+
+            APIC_ADMIN_PWD=$(oc get secret "${APIC_INST_NAME}-mgmt-admin-pass" -n $(params.CP4I_NAMESPACE) -o jsonpath="{.data.password}"| base64 -d)
+
+            echo "Login to APIC with CMC Admin User..."
+
+            ./apic client-creds:clear
+
+            ./apic login --server $APIC_MGMT_SERVER --realm $APIC_REALM -u $APIC_ADMIN_USER -p $APIC_ADMIN_PWD
+
+            GTWYSVCS_LIST=$(./apic gateway-services:list --server $APIC_MGMT_SERVER --org $APIC_ADMIN_ORG --availability-zone $APIC_AVAILABILITY_ZONE | awk '$1 == "eem-gateway-service" { ++count } END { print count }')
+            
+            if [[ -z $GTWYSVCS_LIST ]]; then 
+                echo "Gateway Service for EEM was not configured in APIC"
+                printf false | tee $(results.output.path)
+            else
+                echo "Gateway Service for EEM was configured in APIC"
+                printf true | tee $(results.output.path)
+            fi
+        - name: VERSION
+          value: latest
+      retries: 3
+      runAfter:
+        - ace-ir-instance-email
+      taskRef:
+        kind: Task
+        name: jgr-task-0.2
+      timeout: 3h0m0s  
+      when:
+        - input: "$(tasks.setup-workspace.results.output)"
+          operator: in
+          values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
+        - input: "$(params.DEPLOY_API_CONNECT_DEMOS)"
+          operator: in
+          values: ["true"]
+        - input: "$(params.APIC_API_KEY)"
           operator: notin
           values: [""]
       workspaces:
@@ -2309,23 +3479,23 @@ spec:
             set -o xtrace
 
             if [[ -z $(oc get deployment datapower-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]]; then 
-                echo "Skipping APIC APIs Draft creation, Operator was not installed."
+                echo "No validation needed, DP Operator was not installed."
                 exit 0
             fi
 
             if [[ -z $(oc get deployment ibm-apiconnect -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]]; then 
-                echo "Skipping APIC APIs Draft creation, Operator was not installed."
+                echo "No validation needed, APIC Operator was not installed."
                 exit 0
             fi
 
             if [[ -z "$(oc get APIConnectCluster apim-demo -n $(params.CP4I_NAMESPACE) --no-headers --ignore-not-found)" ]]; then 
-                echo "Skipping APIC APIs Draft creation, Instance was not deployed."
+                echo "No validation needed, APIC Instance was not deployed."
                 exit 0
             fi
 
             cd workspace/cp4i-ws
 
-            echo "Checking API Gateway configuration for WatsinX"
+            echo "Checking API Gateway configuration for WatsonX"
 
             ./apic --accept-license --live-help=false
 
@@ -2364,7 +3534,7 @@ spec:
           value: latest
       retries: 3
       runAfter:
-        - ace-ir-instance-email
+        - apic-validate-eem-gtwy-config
       taskRef:
         kind: Task
         name: jgr-task-0.2
@@ -2373,6 +3543,9 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
         - input: "$(params.DEPLOY_API_CONNECT_DEMOS)"
           operator: in
           values: ["true"]
@@ -2428,149 +3601,157 @@ spec:
             
             ./apic login --server $APIC_MGMT_SERVER --sso --context provider --apiKey $(params.APIC_API_KEY)
             
-            if [[ "$(params.VERBOSE)" == "true" ]]; then
-                echo "Getting Values to Publish REST API..."
-            fi
+            if [ $? -eq 0 ]; then
+                if [[ "$(params.VERBOSE)" == "true" ]]; then
+                    echo "Getting Values to Publish REST API..."
+                fi
 
-            if [[ ! -z $(oc get deployment ibm-appconnect-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]]; then
-                if [[ ! -z "$(oc get integrationruntime jgr-designer-sfleads -n $(params.ACE_NAMESPACE) --no-headers --ignore-not-found)" ]]; then
-                    if [[ "$(params.VERBOSE)" == "true" ]]; then
-                        echo "Setting value to Integration with SF end point."
+                if [[ ! -z $(oc get deployment ibm-appconnect-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]]; then
+                    if [[ ! -z "$(oc get integrationruntime jgr-designer-sfleads -n $(params.ACE_NAMESPACE) --no-headers --ignore-not-found)" ]]; then
+                        if [[ "$(params.VERBOSE)" == "true" ]]; then
+                            echo "Setting value to Integration with SF end point."
+                        fi
+                        export TARGET_URL=$(oc get integrationruntime jgr-designer-sfleads -n $(params.ACE_NAMESPACE) --ignore-not-found -o jsonpath='{.status.endpoints[0].uri}')'/SFLeads/lead'
+                    else
+                        if [[ "$(params.VERBOSE)" == "true" ]]; then
+                            echo "Setting dummy values because Integration with SF was not deployed."
+                        fi
+                        export TARGET_URL="http://enter.URL.for.API.with.SF.integration/" 
                     fi
-                    export TARGET_URL=$(oc get integrationruntime jgr-designer-sfleads -n $(params.ACE_NAMESPACE) --ignore-not-found -o jsonpath='{.status.endpoints[0].uri}')'/SFLeads/lead'
+                    if [[ ! -z "$(oc get integrationruntime jgr-mqapi-prem -n $(params.ACE_NAMESPACE) --no-headers --ignore-not-found)" ]]; then
+                        if [[ "$(params.VERBOSE)" == "true" ]]; then
+                            echo "Setting value to Integration with Premium MQ end point."
+                        fi
+                        export PREMIUM_URL=$(oc get integrationruntime jgr-mqapi-prem -n $(params.ACE_NAMESPACE) --ignore-not-found -o jsonpath='{.status.endpoints[0].uri}')
+                    else
+                        if [[ "$(params.VERBOSE)" == "true" ]]; then
+                            echo "Setting dummy values because Premium Integration with MQ was not deployed."
+                        fi
+                        export PREMIUM_URL="http://enter.URL.for.MQ.API.with.Premium.SLA/"
+                    fi
+                    if [[ ! -z "$(oc get integrationruntime jgr-mqapi-dflt -n $(params.ACE_NAMESPACE) --no-headers --ignore-not-found)" ]]; then
+                        if [[ "$(params.VERBOSE)" == "true" ]]; then
+                            echo "Setting value to Integration with Default MQ end point."
+                        fi
+                        export DEFAULT_URL=$(oc get integrationruntime jgr-mqapi-dflt -n $(params.ACE_NAMESPACE) --ignore-not-found -o jsonpath='{.status.endpoints[0].uri}')
+                    else
+                        if [[ "$(params.VERBOSE)" == "true" ]]; then
+                            echo "Setting dummy values because Default Integration with MQ was not deployed."
+                        fi
+                        export DEFAULT_URL="http://enter.URL.for.MQ.API.with.Default.SLA/"
+                    fi
                 else
                     if [[ "$(params.VERBOSE)" == "true" ]]; then
-                        echo "Setting dummy values because Integration with SF was not deployed."
+                        echo "Setting dummy values because App Connect Operator was not installed."
                     fi
-                    export TARGET_URL="http://enter.URL.for.API.with.SF.integration/" 
-                fi
-                if [[ ! -z "$(oc get integrationruntime jgr-mqapi-prem -n $(params.ACE_NAMESPACE) --no-headers --ignore-not-found)" ]]; then
-                    if [[ "$(params.VERBOSE)" == "true" ]]; then
-                        echo "Setting value to Integration with Premium MQ end point."
-                    fi
-                    export PREMIUM_URL=$(oc get integrationruntime jgr-mqapi-prem -n $(params.ACE_NAMESPACE) --ignore-not-found -o jsonpath='{.status.endpoints[0].uri}')
-                else
-                    if [[ "$(params.VERBOSE)" == "true" ]]; then
-                        echo "Setting dummy values because Premium Integration with MQ was not deployed."
-                    fi
+                    export TARGET_URL="http://enter.URL.for.API.with.SF.integration/"            
                     export PREMIUM_URL="http://enter.URL.for.MQ.API.with.Premium.SLA/"
-                fi
-                if [[ ! -z "$(oc get integrationruntime jgr-mqapi-dflt -n $(params.ACE_NAMESPACE) --no-headers --ignore-not-found)" ]]; then
-                    if [[ "$(params.VERBOSE)" == "true" ]]; then
-                        echo "Setting value to Integration with Default MQ end point."
-                    fi
-                    export DEFAULT_URL=$(oc get integrationruntime jgr-mqapi-dflt -n $(params.ACE_NAMESPACE) --ignore-not-found -o jsonpath='{.status.endpoints[0].uri}')
-                else
-                    if [[ "$(params.VERBOSE)" == "true" ]]; then
-                        echo "Setting dummy values because Default Integration with MQ was not deployed."
-                    fi
                     export DEFAULT_URL="http://enter.URL.for.MQ.API.with.Default.SLA/"
                 fi
-            else
+
                 if [[ "$(params.VERBOSE)" == "true" ]]; then
-                    echo "Setting dummy values because App Connect Operator was not installed."
+                    echo "Preparing REST API File..."
                 fi
-                export TARGET_URL="http://enter.URL.for.API.with.SF.integration/"            
-                export PREMIUM_URL="http://enter.URL.for.MQ.API.with.Premium.SLA/"
-                export DEFAULT_URL="http://enter.URL.for.MQ.API.with.Default.SLA/"
-            fi
 
-            if [[ "$(params.VERBOSE)" == "true" ]]; then
-                echo "Preparing REST API File..."
-            fi
+                yq '.x-ibm-configuration.properties.target-url.value = strenv(TARGET_URL) |
+                    .x-ibm-configuration.properties.default-url.value = strenv(DEFAULT_URL) |
+                    .x-ibm-configuration.properties.premium-url.value = strenv(PREMIUM_URL)
+                  ' cp4i-deployer-helper/templates/template-apic-api-def-jgrmqapiv2-alt.yaml > cp4i-deployer-helper/resources/jgrmqapi_1.2.0.yaml
 
-            yq '.x-ibm-configuration.properties.target-url.value = strenv(TARGET_URL) |
-                .x-ibm-configuration.properties.default-url.value = strenv(DEFAULT_URL) |
-                .x-ibm-configuration.properties.premium-url.value = strenv(PREMIUM_URL)
-               ' cp4i-deployer-helper/templates/template-apic-api-def-jgrmqapiv2-alt.yaml > cp4i-deployer-helper/resources/jgrmqapi_1.2.0.yaml
-
-            if [[ "$(params.VERBOSE)" == "true" ]]; then
-                echo "Publishing RES API and Product in Draft mode..."
-            fi
-
-            DPROD=$(./apic draft-products:list-all --server $APIC_MGMT_SERVER --org $APIC_ORG | awk '$1 == "jgrmqapi-product:1.2.0" { ++count } END { print count }')
-
-            if [[ -z $DPROD ]]; then
                 if [[ "$(params.VERBOSE)" == "true" ]]; then
-                    echo "Invoking APIC CLI"
+                    echo "Publishing RES API and Product in Draft mode..."
                 fi
-                ./apic draft-products:create --server $APIC_MGMT_SERVER --org $APIC_ORG cp4i-deployer-helper/resources/05-jgr-mqapi-product.yaml
-            else
-                if [[ "$(params.VERBOSE)" == "true" ]]; then
-                    echo "Product jgrmqapi-product:1.2.0 already exists."
-                fi                    
-            fi      
 
-            if [[ "$(params.EA_WATSONX)" == "true" ]]; then    
-                if [[ "$(tasks.apic-validate-watsonx-config.results.output)" == "true" ]]; then                
+                DPROD=$(./apic draft-products:list-all --server $APIC_MGMT_SERVER --org $APIC_ORG | awk '$1 == "jgrmqapi-product:1.2.0" { ++count } END { print count }')
+
+                if [[ -z $DPROD ]]; then
                     if [[ "$(params.VERBOSE)" == "true" ]]; then
-                        echo "Publishing WatsonX API and Product in Draft mode..."
+                        echo "Invoking APIC CLI"
                     fi
-                    DPROD=$(./apic draft-products:list-all --server $APIC_MGMT_SERVER --org $APIC_ORG | awk '$1 == "watsonx-product:1.0.0" { ++count } END { print count }')        
-                    if [[ -z $DPROD ]]; then
-                        if [[ "$(params.VERBOSE)" == "true" ]]; then
-                            echo "Invoking APIC CLI"
-                        fi
-                        ./apic draft-products:create --server $APIC_MGMT_SERVER --org $APIC_ORG cp4i-deployer-helper/resources/15-watsonx-ea-product.yaml
-                    else
-                        if [[ "$(params.VERBOSE)" == "true" ]]; then
-                            echo "Product watsonx-product:1.0.0 already exists."
-                        fi
-                    fi
+                    ./apic draft-products:create --server $APIC_MGMT_SERVER --org $APIC_ORG cp4i-deployer-helper/resources/05-jgr-mqapi-product.yaml
                 else
                     if [[ "$(params.VERBOSE)" == "true" ]]; then
-                        echo "WatsonX API can not be published because API Gateway was not configured."
-                    fi
-                fi
-            else
-                if [[ "$(params.VERBOSE)" == "true" ]]; then
-                    echo "WatsonX API was not published per user request."
-                fi
-            fi
+                        echo "Product jgrmqapi-product:1.2.0 already exists."
+                    fi                    
+                fi      
 
-            if [[ "$(params.EEM_APIC_INT)" == "true" ]] &&
-               [[ "$(params.DEPLOY_EVENT_ENDPOINT_MANAGEMENT_DEMOS)" == "true" ]]; then
-                if [[ ! -z $(oc get deployment ibm-eem-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]] &&
-                   [[ ! -z "$(oc get eventendpointmanagement eem-demo-mgr -n $(params.CP4I_NAMESPACE) --no-headers --ignore-not-found)" ]] &&
-                   [[ ! -z $(oc get deployment eventstreams-cluster-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]] &&
-                   [[ ! -z "$(oc get eventstreams es-demo -n $(params.ES_NAMESPACE) --no-headers --ignore-not-found)" ]]; then
-                    if [[ -f cp4i-deployer-helper/artifacts/cp4i-es-demo-topic.yaml ]] &&
-                       [[ -s cp4i-deployer-helper/artifacts/cp4i-es-demo-topic.yaml ]]; then 
+                if [[ "$(params.EA_WATSONX)" == "true" ]]; then    
+                    if [[ "$(tasks.apic-validate-watsonx-config.results.output)" == "true" ]]; then                
                         if [[ "$(params.VERBOSE)" == "true" ]]; then
-                            echo "Copying file."
+                            echo "Publishing WatsonX API and Product in Draft mode..."
                         fi
-                        cp cp4i-deployer-helper/artifacts/cp4i-es-demo-topic.yaml cp4i-deployer-helper/resources/
-                        if [[ "$(params.VERBOSE)" == "true" ]]; then
-                            echo "Publishing AsyncAPI and Product in Draft mode..."
-                        fi
-                        DPROD=$(./apic draft-products:list-all --server $APIC_MGMT_SERVER --org $APIC_ORG | awk '$1 == "jgrasyncapi-product:1.0.0" { ++count } END { print count }')        
+                        DPROD=$(./apic draft-products:list-all --server $APIC_MGMT_SERVER --org $APIC_ORG | awk '$1 == "watsonx-product:1.0.0" { ++count } END { print count }')        
                         if [[ -z $DPROD ]]; then
-                            if [[ "$(params.VERBOSE)" == "true" ]]; then 
+                            if [[ "$(params.VERBOSE)" == "true" ]]; then
                                 echo "Invoking APIC CLI"
                             fi
-                            ./apic draft-products:create --server $APIC_MGMT_SERVER --org $APIC_ORG cp4i-deployer-helper/resources/06-jgr-asyncapi-product.yaml
+                            ./apic draft-products:create --server $APIC_MGMT_SERVER --org $APIC_ORG cp4i-deployer-helper/resources/15-watsonx-ea-product.yaml
                         else
                             if [[ "$(params.VERBOSE)" == "true" ]]; then
-                                echo "Product jgrasyncapi-product:1.0.0 already exists."
+                                echo "Product watsonx-product:1.0.0 already exists."
                             fi
-                        fi 
+                        fi
                     else
                         if [[ "$(params.VERBOSE)" == "true" ]]; then
-                            echo "AsyncAPI can not be published because file does not exist or it is empty." 
+                            echo "WatsonX API can not be published because API Gateway was not configured."
                         fi
                     fi
                 else
                     if [[ "$(params.VERBOSE)" == "true" ]]; then
-                        echo "AsyncAPI can not be published because pre-requisites were not meet." 
+                        echo "WatsonX API was not published per user request."
                     fi
                 fi
-            else
-                if [[ "$(params.VERBOSE)" == "true" ]]; then
-                    echo "AsyncAPI was not published per user request."
-                fi
-            fi
 
-            echo "APIs have been published to Drafts"
+                if [[ "$(params.EEM_APIC_INT)" == "true" ]] &&
+                  [[ "$(params.DEPLOY_EVENT_ENDPOINT_MANAGEMENT_DEMOS)" == "true" ]]; then
+                    if [[ ! -z $(oc get deployment ibm-eem-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]] &&
+                      [[ ! -z "$(oc get eventendpointmanagement eem-demo-mgr -n $(params.CP4I_NAMESPACE) --no-headers --ignore-not-found)" ]] &&
+                      [[ ! -z $(oc get deployment eventstreams-cluster-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]] &&
+                      [[ ! -z "$(oc get eventstreams es-demo -n $(params.ES_NAMESPACE) --no-headers --ignore-not-found)" ]] &&
+                      [[ "$(tasks.apic-validate-eem-gtwy-config.results.output)" == "true" ]]; then 
+                        if [[ -f cp4i-deployer-helper/artifacts/cp4i-es-demo-topic.yaml ]] &&
+                          [[ -s cp4i-deployer-helper/artifacts/cp4i-es-demo-topic.yaml ]]; then 
+                            if [[ "$(params.VERBOSE)" == "true" ]]; then
+                                echo "Copying file."
+                            fi
+                            cp cp4i-deployer-helper/artifacts/cp4i-es-demo-topic.yaml cp4i-deployer-helper/resources/
+                            if [[ "$(params.VERBOSE)" == "true" ]]; then
+                                echo "Publishing AsyncAPI and Product in Draft mode..."
+                            fi
+                            DPROD=$(./apic draft-products:list-all --server $APIC_MGMT_SERVER --org $APIC_ORG | awk '$1 == "jgrasyncapi-product:1.0.0" { ++count } END { print count }')        
+                            if [[ -z $DPROD ]]; then
+                                if [[ "$(params.VERBOSE)" == "true" ]]; then 
+                                    echo "Invoking APIC CLI"
+                                fi
+                                ./apic draft-products:create --server $APIC_MGMT_SERVER --org $APIC_ORG cp4i-deployer-helper/resources/06-jgr-asyncapi-product.yaml
+                            else
+                                if [[ "$(params.VERBOSE)" == "true" ]]; then
+                                    echo "Product jgrasyncapi-product:1.0.0 already exists."
+                                fi
+                            fi 
+                        else
+                            if [[ "$(params.VERBOSE)" == "true" ]]; then
+                                echo "AsyncAPI can not be published because file does not exist or it is empty." 
+                            fi
+                        fi
+                    else
+                        if [[ "$(params.VERBOSE)" == "true" ]]; then
+                            echo "AsyncAPI can not be published because pre-requisites were not meet." 
+                        fi
+                    fi
+                else
+                    if [[ "$(params.VERBOSE)" == "true" ]]; then
+                        echo "AsyncAPI was not published per user request."
+                    fi
+                fi
+
+                echo "APIs have been published to Drafts"
+                printf true | tee $(results.output.path)
+            else
+                echo "Couldn't login to API Connect. Check the credentials provided and try again."
+                oc create secret generic jgr-apic-api-key -n default --from-literal=check="invalid"
+                printf false | tee $(results.output.path)
+            fi
         - name: VERSION
           value: latest
       retries: 3
@@ -2584,6 +3765,9 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
         - input: "$(params.DEPLOY_API_CONNECT_DEMOS)"
           operator: in
           values: ["true"]
@@ -2649,7 +3833,11 @@ spec:
 
             echo "Getting Portal URL..."
 
-            APIC_PORTAL_URL=$(./apic portal-services:list --server $APIC_MGMT_SERVER --scope org --org $APIC_ORG | awk '{print $4}')
+            if [ "$(tasks.check-cp4i-version.results.output)" = "CD" ]; then 
+                APIC_PORTAL_URL=$(./apic portal-services:list --server $APIC_MGMT_SERVER --scope org --org $APIC_ORG | awk '{print $3}')
+            else
+                APIC_PORTAL_URL=$(./apic portal-services:list --server $APIC_MGMT_SERVER --scope org --org $APIC_ORG | awk '{print $4}')
+            fi
 
             echo "Getting Sandbox Catalog definition..."
 
@@ -2720,7 +3908,8 @@ spec:
                 if [[ ! -z $(oc get deployment ibm-eem-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]] &&
                    [[ ! -z "$(oc get eventendpointmanagement eem-demo-mgr -n $(params.CP4I_NAMESPACE) --no-headers --ignore-not-found)" ]] &&
                    [[ ! -z $(oc get deployment eventstreams-cluster-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]] &&
-                   [[ ! -z "$(oc get eventstreams es-demo -n $(params.ES_NAMESPACE) --no-headers --ignore-not-found)" ]]; then 
+                   [[ ! -z "$(oc get eventstreams es-demo -n $(params.ES_NAMESPACE) --no-headers --ignore-not-found)" ]] &&
+                   [[ "$(tasks.apic-validate-eem-gtwy-config.results.output)" == "true" ]]; then 
                     echo "Updating Catalogs with EEM Gateway..."
                     ./apic gateway-services:get --server $APIC_MGMT_SERVER --org $APIC_ORG --availability-zone $APIC_AVAILABILITY_ZONE --scope org --format json eem-gateway-service
                     GATEWAY_SERVICE_NAME=$(jq -r '.name' "eem-gateway-service.json")
@@ -2781,12 +3970,18 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
         - input: "$(params.DEPLOY_API_CONNECT_DEMOS)"
           operator: in
           values: ["true"]
         - input: "$(params.APIC_API_KEY)"
           operator: notin
           values: [""]
+        - input: "$(tasks.apic-create-apis-draft.results.output)"
+          operator: in
+          values: ["true"]
       workspaces:
         - name: cp4i-ws
     - name: apic-new-consumer-org
@@ -2826,6 +4021,10 @@ spec:
 
             CONSUMER_ORG_NAME='AppDevOrg'
 
+            APPDEV_USER='andre'
+
+            APPDEV_FNAME='Andre'
+
             APIC_MGMT_SERVER=$(oc get route "${APIC_INST_NAME}-mgmt-platform-api" -n $(params.CP4I_NAMESPACE) -o jsonpath="{.spec.host}")
 
             echo "Login to APIC with CP4I Admin User using API Key..."
@@ -2834,29 +4033,45 @@ spec:
             
             ./apic login --server $APIC_MGMT_SERVER --sso --context provider --apiKey $(params.APIC_API_KEY)
 
-            PORG_URL=$(./apic orgs:list --server $APIC_MGMT_SERVER | awk -v porgname="${APIC_ORG}" '$1 == porgname {print $4}')
+            if [ "$(tasks.check-cp4i-version.results.output)" = "CD" ]; then 
+                PORG_URL=$(./apic orgs:list --server $APIC_MGMT_SERVER | awk -v porgname="${APIC_ORG}" '$1 == porgname {print $3}')
+            else
+                PORG_URL=$(./apic orgs:list --server $APIC_MGMT_SERVER | awk -v porgname="${APIC_ORG}" '$1 == porgname {print $4}')
+            fi      
 
             USER_REGISTRY_URL=$(./apic user-registries:list --server $APIC_MGMT_SERVER --org $APIC_ORG | awk -v catname="${CATALOG_NAME}-catalog" '$1 == catname {print $2}')
 
             CATALOG_URL=$(./apic catalogs:list --server $APIC_MGMT_SERVER --org $APIC_ORG | awk -v catname="${CATALOG_NAME}" '$1 == catname {print $2}')
 
+            APPDEV_PWD=$(uuidgen | tr '[:upper:]' '[:lower:]' | tr -d '-')
+
             echo "Preparing Consumer Org User File"
 
             ( echo "cat <<EOF" ; cat cp4i-deployer-helper/templates/template-apic-consumer-org-user.json ;) | \
                 CATALOG_NAME=${CATALOG_NAME} \
-                APPDEV_PWD=$(params.APPDEV_PWD) \
+                APPDEV_USER=${APPDEV_USER} \
+                APPDEV_FNAME=${APPDEV_FNAME} \
+                APPDEV_PWD=${APPDEV_PWD} \
                 PORG_URL=${PORG_URL} \
                 USER_REGISTRY_URL=${USER_REGISTRY_URL} \
                 sh > consumer-org-user.json
 
-            CORG_USER=$(./apic users:list --server $APIC_MGMT_SERVER --org $APIC_ORG --user-registry ${CATALOG_NAME}-catalog | awk '$1 == "andre" { ++count } END { print count }')
+            CORG_USER=$(./apic users:list --server $APIC_MGMT_SERVER --org $APIC_ORG --user-registry ${CATALOG_NAME}-catalog | awk -v username="${APPDEV_USER}" '$1 == username { ++count } END { print count }')
             
             if [[ -z $CORG_USER ]]; then
                 echo "Creating Consumer Org User"
-                OWNER_URL=$(./apic users:create --server $APIC_MGMT_SERVER --org $APIC_ORG --user-registry ${CATALOG_NAME}-catalog consumer-org-user.json | awk '{print $4}')
+                if [ "$(tasks.check-cp4i-version.results.output)" = "CD" ]; then 
+                    OWNER_URL=$(./apic users:create --server $APIC_MGMT_SERVER --org $APIC_ORG --user-registry ${CATALOG_NAME}-catalog consumer-org-user.json | awk '{print $3}')
+                else
+                    OWNER_URL=$(./apic users:create --server $APIC_MGMT_SERVER --org $APIC_ORG --user-registry ${CATALOG_NAME}-catalog consumer-org-user.json | awk '{print $4}')
+                fi 
             else                
                 echo "Consumer Org User andre already exists."
-                OWNER_URL=$(./apic users:list --server $APIC_MGMT_SERVER --org $APIC_ORG --user-registry ${CATALOG_NAME}-catalog | awk '$1 == "andre" {print $4}')
+                if [ "$(tasks.check-cp4i-version.results.output)" = "CD" ]; then 
+                    OWNER_URL=$(./apic users:list --server $APIC_MGMT_SERVER --org $APIC_ORG --user-registry ${CATALOG_NAME}-catalog | awk '$1 == "andre" {print $3}')
+                else
+                    OWNER_URL=$(./apic users:list --server $APIC_MGMT_SERVER --org $APIC_ORG --user-registry ${CATALOG_NAME}-catalog | awk '$1 == "andre" {print $4}')
+                fi                
             fi 
 
             echo "Preparing Consumer Org File"
@@ -2877,6 +4092,8 @@ spec:
                 echo "Consumer Org AppDevOrg already exists."
             fi
 
+            oc create secret generic jgr-apic-consumer-org -n default --from-literal=username="andre" --from-literal=password="${APPDEV_PWD}" 
+
             echo "Consumer Organization has been created."  
         - name: VERSION
           value: latest
@@ -2891,15 +4108,18 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
         - input: "$(params.DEPLOY_API_CONNECT_DEMOS)"
           operator: in
           values: ["true"]
         - input: "$(params.APIC_API_KEY)"
           operator: notin
           values: [""]
-        - input: "$(params.APPDEV_PWD)"
-          operator: notin
-          values: [""]
+        - input: "$(tasks.apic-create-apis-draft.results.output)"
+          operator: in
+          values: ["true"]
       workspaces:
         - name: cp4i-ws
     - name: apic-create-apps-subscription
@@ -2947,13 +4167,21 @@ spec:
             
             ./apic login --server $APIC_MGMT_SERVER --sso --context provider --apiKey $(params.APIC_API_KEY)
 
-            PORG_URL=$(./apic orgs:list --server $APIC_MGMT_SERVER | awk -v porgname="${APIC_ORG}" '$1 == porgname {print $4}')
+            if [ "$(tasks.check-cp4i-version.results.output)" = "CD" ]; then
+                PORG_URL=$(./apic orgs:list --server $APIC_MGMT_SERVER | awk -v porgname="${APIC_ORG}" '$1 == porgname {print $3}')
+            else
+                PORG_URL=$(./apic orgs:list --server $APIC_MGMT_SERVER | awk -v porgname="${APIC_ORG}" '$1 == porgname {print $4}')     
+            fi 
 
             CATALOG_URL=$(./apic catalogs:list --server $APIC_MGMT_SERVER --org $APIC_ORG | awk -v catname="${CATALOG_NAME}" '$1 == catname {print $2}')
 
-            CONSUMER_ORG_URL=$(./apic consumer-orgs:list --server $APIC_MGMT_SERVER --org $APIC_ORG --catalog $CATALOG_NAME | awk -v corgname="${CONSUMER_ORG_NAME}" '$1 == corgname {print $4}')
-
-            PRODUCT_URL=$(./apic products:list --scope catalog --server $APIC_MGMT_SERVER --org $APIC_ORG --catalog $CATALOG_NAME jgrasyncapi-product | awk '{print $4}')
+            if [ "$(tasks.check-cp4i-version.results.output)" = "CD" ]; then 
+                CONSUMER_ORG_URL=$(./apic consumer-orgs:list --server $APIC_MGMT_SERVER --org $APIC_ORG --catalog $CATALOG_NAME | awk -v corgname="${CONSUMER_ORG_NAME}" '$1 == corgname {print $3}')
+                PRODUCT_URL=$(./apic products:list --scope catalog --server $APIC_MGMT_SERVER --org $APIC_ORG --catalog $CATALOG_NAME jgrasyncapi-product | awk '{print $3}')
+            else
+                CONSUMER_ORG_URL=$(./apic consumer-orgs:list --server $APIC_MGMT_SERVER --org $APIC_ORG --catalog $CATALOG_NAME | awk -v corgname="${CONSUMER_ORG_NAME}" '$1 == corgname {print $4}')
+                PRODUCT_URL=$(./apic products:list --scope catalog --server $APIC_MGMT_SERVER --org $APIC_ORG --catalog $CATALOG_NAME jgrasyncapi-product | awk '{print $4}')
+            fi 
 
             echo "Preparing App File"
 
@@ -3017,7 +4245,8 @@ spec:
                 if [[ ! -z $(oc get deployment ibm-eem-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]] &&
                    [[ ! -z "$(oc get eventendpointmanagement eem-demo-mgr -n $(params.CP4I_NAMESPACE) --no-headers --ignore-not-found)" ]] &&
                    [[ ! -z $(oc get deployment eventstreams-cluster-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]] &&
-                   [[ ! -z "$(oc get eventstreams es-demo -n $(params.ES_NAMESPACE) --no-headers --ignore-not-found)" ]]; then 
+                   [[ ! -z "$(oc get eventstreams es-demo -n $(params.ES_NAMESPACE) --no-headers --ignore-not-found)" ]] &&
+                   [[ "$(tasks.apic-validate-eem-gtwy-config.results.output)" == "true" ]]; then 
                     echo "Preparing Subscription File"
                     SUBSCRIPTION_NAME=$(uuidgen | awk '{print tolower($0)}') 
                     ( echo "cat <<EOF" ; cat cp4i-deployer-helper/templates/template-apic-subscription.json ;) | \
@@ -3060,13 +4289,264 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
         - input: "$(params.DEPLOY_API_CONNECT_DEMOS)"
           operator: in
           values: ["true"]
         - input: "$(params.APIC_API_KEY)"
           operator: notin
           values: [""]
-        - input: "$(params.APPDEV_PWD)"
+        - input: "$(tasks.apic-create-apis-draft.results.output)"
+          operator: in
+          values: ["true"]
+      workspaces:
+        - name: cp4i-ws
+    - name: apic-create-engagement-resources
+      params:
+        - name: SCRIPT
+          value: >-
+            set -o xtrace
+
+            if [[ -z $(oc get deployment datapower-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]]; then 
+                echo "Skipping APIC configuration, DataPower Operator was not installed."
+                exit 0
+            fi
+
+            if [[ -z $(oc get deployment ibm-apiconnect -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]]; then 
+                echo "Skipping APIC configuration, APIC Operator was not installed."
+                exit 0
+            fi            
+
+            if [[ -z "$(oc get APIConnectCluster apim-demo -n $(params.CP4I_NAMESPACE) --no-headers --ignore-not-found)" ]]; then 
+                echo "Skipping APIC configuration, APIC Instance was not deployed."
+                exit 0
+            fi
+            
+            cd workspace/cp4i-ws
+
+            echo "Setting apic variables"
+
+            APIC_INST_NAME='apim-demo'
+            
+            APIC_ORG='cp4i-demo-org'
+            
+            APIC_MGMT_SERVER=$(oc get route "${APIC_INST_NAME}-mgmt-platform-api" -n $(params.CP4I_NAMESPACE) -o jsonpath="{.spec.host}")
+            
+            APIC_ANALYTICS_SERVICE='analytics-service'
+
+            ./apic --accept-license --live-help=false
+            
+            echo "Login to APIC with CP4I Admin User using API Key..."
+            
+            ./apic client-creds:clear
+            
+            ./apic login --server $APIC_MGMT_SERVER --sso --context provider --apiKey $(params.APIC_API_KEY)
+
+            if [[ -z $(oc get deployment ibm-appconnect-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]]; then 
+                echo "Skipping APIC configuration with ACE, App Connect Operator was not installed."
+            else
+                cd cp4i-deployer-helper
+                CONFIG_NAME="ace-email-designer-account"
+                if [[ ! -z "$(oc get configuration ${CONFIG_NAME} -n $(params.ACE_NAMESPACE) --no-headers --ignore-not-found)"  ]]; then
+                    echo "Skipping ACE Configuration deployment, ${CONFIG_NAME} already exists."
+                else
+                    CONFIG_TYPE="accounts"
+                    CONFIG_DESCRIPTION="Credentials to connect to MailPit from Designer Flow"
+                    ACCOUNT_NAME="JGRMailPitAcct"
+                    MAILPIT_USER="admin@cp4i.demo.net"
+                    MAILPIT_PWD=$(uuidgen | tr '[:upper:]' '[:lower:]' | tr -d '-')
+                    MAILPIT_URL="mailpit-smtp.mailpit.svc.cluster.local:1025"
+                    echo "Prepare Config content"
+                    ( echo "cat <<EOF" ; cat templates/template-ace-config-account-email.yaml ;) | \
+                        ACCOUNT_NAME=${ACCOUNT_NAME} \
+                        MAILPIT_USER=${MAILPIT_USER} \
+                        MAILPIT_PWD=${MAILPIT_PWD} \
+                        MAILPIT_URL=${MAILPIT_URL} \
+                        sh > ace-config-account-email.yaml
+                    echo "Preparing Base64 data for Configuration..."
+                    CONFIG_DATA_BASE64=$(base64 -w 0 -i ace-config-account-email.yaml)
+                    echo "Prepare Configuration File"
+                    ( echo "cat <<EOF" ; cat templates/template-ace-config-data.yaml ;) | \
+                        CONFIG_NAME=${CONFIG_NAME} \
+                        CONFIG_TYPE=${CONFIG_TYPE} \
+                        CONFIG_NS=$(params.ACE_NAMESPACE) \
+                        CONFIG_DESCRIPTION=${CONFIG_DESCRIPTION} \
+                        CONFIG_DATA_BASE64=${CONFIG_DATA_BASE64} \
+                        sh > ace-config-accounts-designer.yaml
+                    echo "Creating ACE Configuration..."
+                    oc apply -f ace-config-accounts-designer.yaml
+                    echo "Account Configuration for MailPit has been created."
+                fi
+                echo "Deploying Integration APIC Engagement..."
+                oc apply -f instances/$(tasks.check-cp4i-version.results.output)/29-ace-is-apic-engagement-instance.yaml -n $(params.ACE_NAMESPACE)                                                                                         
+                echo "Waiting for Integration Server to be deployed..."
+                while ! oc wait --for=jsonpath='{.status.phase}'=Ready \
+                integrationruntimes/jgr-apic-engagement -n \
+                $(params.ACE_NAMESPACE)  2>/dev/null; do sleep 30; done
+                echo "Integration Server is deployed"
+                cd ..            
+                echo "Creating Engagement Destination and Rule ..."
+                DESTINATION_NAME="JGR ACE Destination"
+                DEST_DESCRIPTION="Send email using ACE integration"
+                RULE_NAME="JGR Demo Rule"            
+                TRIGGER_NAME="ACE trigger"
+                ACTION_NAME="ACE Action"
+                ACTION_MSG='{"email":"user@cp4.demo.net","severity":1,"subject":"APIs failing with 40x.","body":"Attention needed."}'
+                ACE_INST_NAME='jgr-apic-engagement'
+                API_PATH='/jgr-apic-engagement/message'
+                DESTINATION_URL=$(oc get integrationruntime $ACE_INST_NAME -n $(params.ACE_NAMESPACE) --ignore-not-found -o jsonpath='{.status.endpoints[?(@.name=="http endpoint")].uri}')$API_PATH
+                ./apic -m engagement destinations:orgList --server $APIC_MGMT_SERVER --org $APIC_ORG --analytics-service $APIC_ANALYTICS_SERVICE --format json --output . 
+                cat DestinationsListResponse.json
+                APIC_ENG_DEST_ID=$(jq -r --arg DESTINATION_NAME "$DESTINATION_NAME" '.destinations[] | select(.title==$DESTINATION_NAME) | .id' DestinationsListResponse.json)            
+                if [ -z "$APIC_ENG_DEST_ID" ]; then
+                    echo "Preparing Destination File..."
+                    ( echo "cat <<EOF" ; cat cp4i-deployer-helper/templates/template-apic-engagement-destination.yaml ;) | \
+                        DESTINATION_URL=${DESTINATION_URL} \
+                        DESTINATION_NAME=${DESTINATION_NAME} \
+                        DEST_DESCRIPTION=${DEST_DESCRIPTION} \
+                        DEST_WHP_VALUE="" \
+                        sh > apic-engagement-destination.yaml
+                    cat apic-engagement-destination.yaml
+                    echo "Creating Destination..." 
+                    ./apic -m engagement destinations:orgCreate --server $APIC_MGMT_SERVER --org $APIC_ORG --analytics-service $APIC_ANALYTICS_SERVICE --debug apic-engagement-destination.yaml
+                else
+                    echo "APIC Engagement Destination already exists."
+                fi
+                ls -l 
+                rm -f DestinationsListResponse.json
+                ./apic -m engagement rules:orgList --server $APIC_MGMT_SERVER --org $APIC_ORG --analytics-service $APIC_ANALYTICS_SERVICE --format json --output .
+                cat RulesListResponse.json
+                APIC_ENG_RULE_ID=$(jq -r --arg RULE_NAME "$RULE_NAME" '.rules[] | select(.title==$RULE_NAME) | .id' RulesListResponse.json)
+                if [ -z "$APIC_ENG_RULE_ID" ]; then
+                    ./apic -m engagement destinations:orgList --server $APIC_MGMT_SERVER --org $APIC_ORG --analytics-service $APIC_ANALYTICS_SERVICE --format json --debug --output .
+                    ls -l 
+                    cat DestinationsListResponse.json
+                    rm -f DestinationsListResponse.json
+                    ls -l
+                    ./apic -m engagement destinations:orgList --server $APIC_MGMT_SERVER --org $APIC_ORG --analytics-service $APIC_ANALYTICS_SERVICE --format json --debug --output .
+                    ls -l
+                    cat DestinationsListResponse.json
+                    DESTINATION_ID=$(jq -r --arg DESTINATION_NAME "$DESTINATION_NAME" '.destinations[] | select(.title==$DESTINATION_NAME) | .id' DestinationsListResponse.json)
+                    echo "Preparing Rule File..."
+                    ( echo "cat <<EOF" ; cat cp4i-deployer-helper/templates/template-apic-engagement-rule.yaml ;) | \
+                        DESTINATION_ID=${DESTINATION_ID} \
+                        RULE_NAME=${RULE_NAME} \
+                        TRIGGER_NAME=${TRIGGER_NAME} \
+                        ACTION_NAME=${ACTION_NAME} \
+                        ACTION_MSG=${ACTION_MSG} \
+                        sh > apic-engagement-rule.yaml
+                    echo "Creating Rule..."
+                    ./apic -m engagement rules:orgCreate --server $APIC_MGMT_SERVER --org $APIC_ORG --analytics-service $APIC_ANALYTICS_SERVICE apic-engagement-rule.yaml
+                else
+                    echo "APIC Engagement Rule already exists."
+                fi
+                echo "Cleaning up temp files..."
+                rm -f apic-engagement-destination.yaml            
+                rm -f RulesListResponse.json
+                rm -f apic-engagement-rule.yaml            
+            fi
+
+            if [[ -z $(oc get deployment eventstreams-cluster-operator -n openshift-operators --ignore-not-found -o jsonpath='{.metadata.labels.olm\.owner}') ]]; then 
+                echo "Skipping APIC configuration with Kafka, Event Streams Operator was not installed."
+            else
+                if [[ -z "$(oc get eventstreams es-demo -n $(params.ES_NAMESPACE) --no-headers --ignore-not-found)" ]]; then 
+                    echo "Skipping APIC configuration with Kafka, Event Streams instance was not deployed."
+                else
+                    if [[ -z "$(oc get kafkatopic apic-engagement-topic -n $(params.ES_NAMESPACE) --no-headers --ignore-not-found)" ]]; then 
+                        echo "Skipping APIC configuration with Kafka, Topic was not configured."
+                    else
+                        if [[ -z "$(oc get kafkabridge jgr-es-demo-bridge -n $(params.ES_NAMESPACE) --no-headers --ignore-not-found)" ]]; then 
+                            echo "Skipping APIC configuration with Kafka, Bridge was not deployed."
+                        else            
+                            ES_BRIDGE_NAME='jgr-es-demo-bridge'
+                            echo "Creating Engagement Destination and Rule ..."
+                            DESTINATION_NAME="JGR Kafka Destination"
+                            DEST_DESCRIPTION="Send event to ES using Kafka Bridge"
+                            DEST_WHP_VALUE='"content-type": "application/vnd.kafka.json.v2+json"'
+                            RULE_NAME="JGR Kafka Rule"
+                            TRIGGER_NAME="Kafka trigger"
+                            ACTION_NAME="Kafka Action"
+                            ACTION_MSG='{"records":[{"key":"apic-engagement","value":{"message":"APIs failing with 40x","alert":123,"action":"Attention needed."}}]}'
+                            API_PATH='/topics/apic-engagement-topic'
+                            DESTINATION_URL="http://"$(oc get route $ES_BRIDGE_NAME -n $(params.ES_NAMESPACE) --ignore-not-found -o jsonpath='{.status.ingress[0].host}')$API_PATH
+                            ./apic -m engagement destinations:orgList --server $APIC_MGMT_SERVER --org $APIC_ORG --analytics-service $APIC_ANALYTICS_SERVICE --format json --output .
+                            cat DestinationsListResponse.json
+                            APIC_ENG_DEST_ID=$(jq -r --arg DESTINATION_NAME "$DESTINATION_NAME" '.destinations[] | select(.title==$DESTINATION_NAME) | .id' DestinationsListResponse.json)
+                            if [ -z "$APIC_ENG_DEST_ID" ]
+                            then
+                                echo "Preparing Destination File..."
+                                ( echo "cat <<EOF" ; cat cp4i-deployer-helper/templates/template-apic-engagement-destination.yaml ;) | \
+                                    DESTINATION_URL=${DESTINATION_URL} \
+                                    DESTINATION_NAME=${DESTINATION_NAME} \
+                                    DEST_DESCRIPTION=${DEST_DESCRIPTION} \
+                                    DEST_WHP_VALUE=${DEST_WHP_VALUE} \
+                                    sh > apic-engagement-destination.yaml
+                                echo "Creating Destination..." 
+                                ./apic -m engagement destinations:orgCreate --server $APIC_MGMT_SERVER --org $APIC_ORG --analytics-service $APIC_ANALYTICS_SERVICE apic-engagement-destination.yaml
+                            else
+                                echo "APIC Engagement Destination already exists."
+                            fi
+                            ls -l 
+                            rm -f DestinationsListResponse.json
+                            ./apic -m engagement rules:orgList --server $APIC_MGMT_SERVER --org $APIC_ORG --analytics-service $APIC_ANALYTICS_SERVICE --format json --output .
+                            cat RulesListResponse.json                            
+                            APIC_ENG_RULE_ID=$(jq -r --arg RULE_NAME "$RULE_NAME" '.rules[] | select(.title==$RULE_NAME) | .id' RulesListResponse.json)
+                            if [ -z "$APIC_ENG_RULE_ID" ]
+                            then
+                                ./apic -m engagement destinations:orgList --server $APIC_MGMT_SERVER --org $APIC_ORG --analytics-service $APIC_ANALYTICS_SERVICE --format json --debug --output .
+                                ls -l 
+                                cat DestinationsListResponse.json
+                                rm -f DestinationsListResponse.json
+                                ls -l
+                                ./apic -m engagement destinations:orgList --server $APIC_MGMT_SERVER --org $APIC_ORG --analytics-service $APIC_ANALYTICS_SERVICE --format json --debug --output .
+                                ls -l
+                                cat DestinationsListResponse.json
+                                DESTINATION_ID=$(jq -r --arg DESTINATION_NAME "$DESTINATION_NAME" '.destinations[] | select(.title==$DESTINATION_NAME) | .id' DestinationsListResponse.json)
+                                echo "Preparing Rule File..."
+                                ( echo "cat <<EOF" ; cat cp4i-deployer-helper/templates/template-apic-engagement-rule.yaml ;) | \
+                                    DESTINATION_ID=${DESTINATION_ID} \
+                                    RULE_NAME=${RULE_NAME} \
+                                    TRIGGER_NAME=${TRIGGER_NAME} \
+                                    ACTION_NAME=${ACTION_NAME} \
+                                    ACTION_MSG=${ACTION_MSG} \
+                                    sh > apic-engagement-rule.yaml
+                                echo "Creating Rule..."
+                                ./apic -m engagement rules:orgCreate --server $APIC_MGMT_SERVER --org $APIC_ORG --analytics-service $APIC_ANALYTICS_SERVICE apic-engagement-rule.yaml
+                            else
+                                echo "APIC Engagement Rule already exists."
+                            fi
+                            echo "Cleaning up temp files..." 
+                            rm -f apic-engagement-destination.yaml
+                            rm -f RulesListResponse.json
+                            rm -f apic-engagement-rule.yaml
+                        fi
+                    fi
+                fi
+            fi
+
+            echo "Destinations and Rules have been created."
+        - name: VERSION
+          value: latest
+      retries: 3
+      runAfter:
+        - apic-create-apps-subscription
+      taskRef:
+        kind: Task
+        name: jgr-task-0.2
+      timeout: 3h0m0s  
+      when:
+        - input: "$(tasks.setup-workspace.results.output)"
+          operator: in
+          values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.1", "CD"]
+        - input: "$(params.DEPLOY_API_CONNECT_DEMOS)"
+          operator: in
+          values: ["true"]
+        - input: "$(params.APIC_API_KEY)"
           operator: notin
           values: [""]
       workspaces:
@@ -3129,7 +4609,7 @@ spec:
           value: latest
       retries: 3
       runAfter:
-        - apic-create-apps-subscription
+        - apic-create-engagement-resources
       taskRef:
         kind: Task
         name: jgr-task-0.2
@@ -3138,12 +4618,18 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"] 
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
         - input: "$(params.DEPLOY_API_CONNECT_DEMOS)"
           operator: in
           values: ["true"]
         - input: "$(params.APIC_API_KEY)"
           operator: notin
           values: [""]
+        - input: "$(tasks.apic-create-apis-draft.results.output)"
+          operator: in
+          values: ["true"]
       workspaces:
         - name: cp4i-ws
     - name: cp4i-deploy-assemblies
@@ -3186,7 +4672,9 @@ spec:
 
             echo "Preparing cp4i assembly instance manifest"
 
-            (echo "cat <<EOF" ; cat instances/$(params.CP4I_VERSION)/01-assembly-demo-api-ir.yaml ;) | \
+            (echo "cat <<EOF" ; cat instances/$(tasks.check-cp4i-version.results.output)/01-assembly-demo-api-ir.yaml ;) | \
+                APIC_CREDENTIALS="apim-credentials-api-key" \
+                APIC_PROVIDER_ORG="cp4i-demo-org" \
                 OCP_BLOCK_STORAGE=$(params.OCP_BLOCK_STORAGE) \
                 sh > cp4i-assembly-instance.yaml
 
@@ -3207,7 +4695,9 @@ spec:
 
             echo "Preparing cp4i assembly instance manifest"
 
-            (echo "cat <<EOF" ; cat instances/$(params.CP4I_VERSION)/02-assembly-demo-product-ir.yaml ;) | \
+            (echo "cat <<EOF" ; cat instances/$(tasks.check-cp4i-version.results.output)/02-assembly-demo-product-ir.yaml ;) | \
+                APIC_CREDENTIALS="apim-credentials-api-key" \
+                APIC_PROVIDER_ORG="cp4i-demo-org" \
                 OCP_BLOCK_STORAGE=$(params.OCP_BLOCK_STORAGE) \
                 sh > cp4i-assembly-instance.yaml
 
@@ -3228,7 +4718,9 @@ spec:
 
             echo "Preparing cp4i assembly instance manifest"
 
-            (echo "cat <<EOF" ; cat instances/$(params.CP4I_VERSION)/03-assembly-demo-product-ir.yaml ;) | \
+            (echo "cat <<EOF" ; cat instances/$(tasks.check-cp4i-version.results.output)/03-assembly-demo-product-ir.yaml ;) | \
+                APIC_CREDENTIALS="apim-credentials-api-key" \
+                APIC_PROVIDER_ORG="cp4i-demo-org" \
                 OCP_BLOCK_STORAGE=$(params.OCP_BLOCK_STORAGE) \
                 sh > cp4i-assembly-instance.yaml
 
@@ -3257,6 +4749,9 @@ spec:
         - input: "$(tasks.setup-workspace.results.output)"
           operator: in
           values: ["true"]
+        - input: "$(tasks.check-cp4i-version.results.output)"
+          operator: in
+          values: ["16.1.0", "16.1.1", "CD"]
         - input: "$(params.DEPLOY_API_CONNECT_DEMOS)"
           operator: in
           values: ["true"]
@@ -3266,5 +4761,8 @@ spec:
         - input: "$(params.APIC_API_KEY)"
           operator: notin
           values: [""]
+        - input: "$(tasks.apic-create-apis-draft.results.output)"
+          operator: in
+          values: ["true"]
       workspaces:
         - name: cp4i-ws
